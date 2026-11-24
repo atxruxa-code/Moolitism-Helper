@@ -1,0 +1,8 @@
+<Bindings>
+  <Binding name="MOOHELPER_MOO" header="MOOHELPER" category="ADDONS">
+    MooHelper_Moo()
+  </Binding>
+  <Binding name="MOOHELPER_MOO_TARGET" category="ADDONS">
+    MooHelper_MooAtTarget()
+  </Binding>
+</Bindings>

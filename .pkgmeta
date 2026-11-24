@@ -1,0 +1,6 @@
+package-as: MooHelper
+
+ignore:
+  - .github
+  - .gitignore
+  - .pkgmeta

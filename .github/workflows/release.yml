@@ -1,0 +1,24 @@
+# Builds MooHelper-<version>-forever.zip and release.json and publishes a GitHub release
+# whenever a version tag like v3.1.0 is pushed. WoWUp installs from these releases.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and release
+        uses: BigWigsMods/packager@v2

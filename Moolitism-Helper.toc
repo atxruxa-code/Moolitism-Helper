@@ -1,5 +1,5 @@
 ## Interface: 16001
-## Title: MooHelper
+## Title: Moolitism Helper
 ## Notes: Taurens moo. Now you do too. Loudly. Everywhere. With a cow, a farm, a herd and 615 moo-chievements.
 ## Author: avtikhomi
 ## Version: 3.1.0

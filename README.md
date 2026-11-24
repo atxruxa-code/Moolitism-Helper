@@ -1,12 +1,23 @@
-# MooHelper 3.1
+# Moolitism Helper 3.1
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 13 party games and 615 moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
+In game it calls itself MooHelper, and every command starts with `/moo`.
 
 ## Install
 
-Copy the whole `MooHelper` folder (including the `Ach` folder inside it) into your Forever client's
-`Interface\AddOns\` folder, replacing any older MooHelper, and `/reload`.
+**With WoWUp:** Get Addons → Install from URL → paste `https://github.com/atxruxa-code/Moolitism-Helper`.
+WoWUp then offers updates whenever a new version is released.
+
+**By hand:** download `Moolitism-Helper-<version>-forever.zip` from the
+[Releases page](https://github.com/atxruxa-code/Moolitism-Helper/releases) and unzip it into your Forever
+client's `Interface\AddOns\` folder, so you get `Interface\AddOns\Moolitism-Helper\Moolitism-Helper.toc`.
+Then restart the game. If you had the older `MooHelper` folder, delete it so the two don't both load.
+
+## Releasing a new version
+
+Bump `## Version` in `Moolitism-Helper.toc`, commit, then push a tag: `git tag v3.2.0` and
+`git push origin v3.2.0`. GitHub builds the zip and `release.json` and publishes the release.
 
 - **The Barn** is the main window: `/moo barn`, right-click the kodo button, or the addon menu.
 - **The kodo button** moos. Drag it anywhere.

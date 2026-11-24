@@ -1,4 +1,4 @@
-package-as: MooHelper
+package-as: Moolitism-Helper
 
 ignore:
   - .github

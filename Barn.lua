@@ -834,7 +834,248 @@ end, refresh = function(p)
   p.scale:SetText(("Size: %d%%   %s"):format(math.floor(ns.db.buttonScale * 100 + 0.5), ns.db.hideButton and "(hidden)" or ""))
 end }
 
-local PAGE_ORDER = { "moo", "channels", "triggers", "games", "herd", "bessie", "farm", "ach", "settings" }
+---------------------------------------------------------------------------
+-- Page: Moo Meter
+---------------------------------------------------------------------------
+
+pages.meter = { title = "Moo Meter", icon = "INV_Misc_PocketWatch_01", build = function(p)
+  Label(p, "A damage meter in moos: 1 moo = 1,000 damage, so 12,300 DPS is |cffffd10012.3 MooPS|r. Forever hides the " ..
+    "numbers from addons during combat, so the meter fills in the moment each fight ends. \"Moos\" counts real moos " ..
+    "typed in party chat, live.", "GameFontHighlightSmall", 6, -6, 710)
+  local open = Btn(p, "Show / hide the meter window", 220, 24, function() ns:ToggleMeter() ns:RefreshBarn() end)
+  open:SetPoint("TOPLEFT", 6, -52)
+  local postLast = Btn(p, "Post last fight", 130, 24, function()
+    local mode = ns:MeterView()
+    local ok, why = ns:PostMeter(mode, "last")
+    if not ok and why then ns:Print(why) end
+  end)
+  postLast:SetPoint("TOPLEFT", 232, -52)
+  local postAll = Btn(p, "Post overall", 120, 24, function()
+    local mode = ns:MeterView()
+    local ok, why = ns:PostMeter(mode, "overall")
+    if not ok and why then ns:Print(why) end
+  end)
+  postAll:SetPoint("TOPLEFT", 368, -52)
+  p.auto = Check(p, 500, -52, "Post after boss kills", function() return ns.db.triggers.meterAutoPost end,
+    function(v) ns.db.triggers.meterAutoPost = v end)
+  Section(p, "Show", 6, -88, 710)
+  p.modeButtons = {}
+  for i, m in ipairs(ns.METER_MODES) do
+    local b = Btn(p, m.name, 98, 22, function() ns:SetMeterView(m.key, nil) ns:RefreshBarn() end)
+    b:SetPoint("TOPLEFT", 6 + (i - 1) * 101, -110)
+    b.key = m.key
+    p.modeButtons[i] = b
+  end
+  p.whichButtons = {}
+  for i, w in ipairs({ { "last", "Last fight" }, { "overall", "Overall" } }) do
+    local b = Btn(p, w[2], 100, 22, function() ns:SetMeterView(nil, w[1]) ns:RefreshBarn() end)
+    b:SetPoint("TOPLEFT", 6 + (i - 1) * 104, -138)
+    b.which = w[1]
+    p.whichButtons[i] = b
+  end
+  p.rows = {}
+  for i = 1, 10 do
+    local bar = Bar(p, 700, 20, { 0.7, 0.55, 0.3 })
+    bar:SetPoint("TOPLEFT", 6, -172 - (i - 1) * 24)
+    bar.text:ClearAllPoints()
+    bar.text:SetPoint("LEFT", 6, 0)
+    bar.right = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.right:SetPoint("RIGHT", -6, 0)
+    p.rows[i] = bar
+  end
+  p.note = Label(p, "", "GameFontDisableSmall", 6, -420, 700)
+end, refresh = function(p)
+  local mode, which = ns:MeterView()
+  for _, b in ipairs(p.modeButtons) do if b.key == mode then b:LockHighlight() else b:UnlockHighlight() end end
+  for _, b in ipairs(p.whichButtons) do if b.which == which then b:LockHighlight() else b:UnlockHighlight() end end
+  p.auto:SetChecked(ns.db.triggers.meterAutoPost and true or false)
+  local snap = ns:MeterSnapshot(mode, which)
+  local rows = snap and snap.rows or {}
+  local top = rows[1] and rows[1].amount or 1
+  for i, bar in ipairs(p.rows) do
+    local r = rows[i]
+    if r then
+      local c = RAID_CLASS_COLORS and r.class and RAID_CLASS_COLORS[r.class]
+      if c then bar:SetStatusBarColor(c.r, c.g, c.b) else bar:SetStatusBarColor(0.7, 0.55, 0.3) end
+      SetBar(bar, r.amount, top, ("%d. %s"):format(i, r.name))
+      bar.right:SetText(ns.MeterValue(mode, r))
+      bar:Show()
+    else
+      bar:Hide()
+    end
+  end
+  if #rows == 0 then
+    p.note:SetText(not ns:MeterSupported() and mode ~= "moos" and
+      "This client isn't sharing damage meter data with addons. Moos mode still works." or
+      "Nothing measured yet. Fight something: the numbers appear when the fight ends.")
+  else
+    p.note:SetText(snap.duration and ("Measured over %d:%02d."):format(math.floor(snap.duration / 60), math.floor(snap.duration % 60)) or "")
+  end
+end, live = true }
+
+---------------------------------------------------------------------------
+-- Page: Moo Bingo
+---------------------------------------------------------------------------
+
+pages.bingo = { title = "Moo Bingo", icon = "INV_Misc_Note_02", build = function(p)
+  Label(p, "Squares mark themselves as things happen. Five in a row (any direction) is BINGO: +1,000 milk and an " ..
+    "announcement. The whole card is a BLACKOUT: +5,000 milk.", "GameFontHighlightSmall", 6, -6, 560)
+  local new = Btn(p, "New card", 110, 22, function() ns:NewBingoCard() ns:RefreshBarn() end)
+  new:SetPoint("TOPRIGHT", -8, -6)
+  p.announce = Check(p, 6, -36, "Announce BINGO in group chat", function() return ns.db.triggers.bingoAnnounce end,
+    function(v) ns.db.triggers.bingoAnnounce = v end)
+  p.cells = {}
+  for i = 1, 25 do
+    local cell = CreateFrame("Frame", nil, p, BACKDROP_TEMPLATE)
+    cell:SetSize(134, 76)
+    cell:SetPoint("TOPLEFT", 6 + ((i - 1) % 5) * 140, -64 - math.floor((i - 1) / 5) * 82)
+    Backdrop(cell, { 0.12, 0.08, 0.05, 0.9 }, { 0.5, 0.36, 0.2 }, 12)
+    cell.text = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    cell.text:SetPoint("CENTER", 0, 4)
+    cell.text:SetWidth(122)
+    cell.stamp = cell:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    cell.stamp:SetPoint("BOTTOM", 0, 6)
+    p.cells[i] = cell
+  end
+  p.status = Label(p, "", "GameFontNormal", 6, -480, 700)
+end, refresh = function(p)
+  local card = ns.db.bingo
+  if not card then return end
+  p.announce:SetChecked(ns.db.triggers.bingoAnnounce and true or false)
+  for i, cell in ipairs(p.cells) do
+    local sq = card.squares[i]
+    local marked = card.marked[i]
+    cell.text:SetText(sq == "free" and "FREE\n(moo)" or (ns.BINGO_LABEL[sq] or sq))
+    if marked then
+      Backdrop(cell, { 0.45, 0.32, 0.05, 0.95 }, GOLD, 12)
+      cell.stamp:SetText("|cffffd100MOO!|r")
+    else
+      Backdrop(cell, { 0.12, 0.08, 0.05, 0.9 }, { 0.5, 0.36, 0.2 }, 12)
+      cell.stamp:SetText("")
+    end
+  end
+  local marked = 0
+  for i = 1, 25 do if card.marked[i] then marked = marked + 1 end end
+  p.status:SetText(("%d / 25 squares   Lines: %d%s   Lifetime bingos: %d"):format(marked, card.lines or 0,
+    card.blackout and "   |cffffd100BLACKOUT|r" or "", ns:GetStat("bingos")))
+end, live = true }
+
+---------------------------------------------------------------------------
+-- Page: Moo Market
+---------------------------------------------------------------------------
+
+pages.market = { title = "Moo Market", icon = "INV_Misc_Coin_02", build = function(p)
+  p.summary = Label(p, "", "GameFontHighlight", 6, -6, 710)
+  p.panels = {}
+  for i, s in ipairs(ns.STOCKS) do
+    local panel = CreateFrame("Frame", nil, p, BACKDROP_TEMPLATE)
+    panel:SetSize(234, 440)
+    panel:SetPoint("TOPLEFT", 4 + (i - 1) * 240, -40)
+    Backdrop(panel, { 0.12, 0.08, 0.05, 0.9 }, { 0.6, 0.45, 0.25 }, 12)
+    Label(panel, s.key .. "  " .. s.name, "GameFontNormal", 10, -10)
+    Label(panel, s.desc, "GameFontDisableSmall", 10, -28, 214)
+    panel.price = Label(panel, "", "GameFontNormalHuge", 10, -50)
+    panel.change = Label(panel, "", "GameFontHighlightSmall", 10, -84)
+    -- price chart: 60 thin bars
+    panel.chart = {}
+    for j = 1, 60 do
+      local t = panel:CreateTexture(nil, "ARTWORK")
+      t:SetColorTexture(1, 0.82, 0.2, 0.8)
+      t:SetWidth(3)
+      t:SetPoint("BOTTOMLEFT", 10 + (j - 1) * 3.5, 290)
+      panel.chart[j] = t
+    end
+    local axis = panel:CreateTexture(nil, "BORDER")
+    axis:SetColorTexture(1, 1, 1, 0.2)
+    axis:SetSize(212, 1)
+    axis:SetPoint("BOTTOMLEFT", 10, 289)
+    panel.holding = Label(panel, "", "GameFontHighlightSmall", 10, -168, 214)
+    local buys = { { "Buy 1", 1 }, { "Buy 10", 10 }, { "Buy max", "max" } }
+    for j, b in ipairs(buys) do
+      local btn = Btn(panel, b[1], 70, 22, function() Say(ns:BuyStock(s.key, b[2])) end)
+      btn:SetPoint("TOPLEFT", 8 + (j - 1) * 73, -220)
+    end
+    local sells = { { "Sell 1", 1 }, { "Sell 10", 10 }, { "Sell all", "all" } }
+    for j, b in ipairs(sells) do
+      local btn = Btn(panel, b[1], 70, 22, function() Say(ns:SellStock(s.key, b[2])) end)
+      btn:SetPoint("TOPLEFT", 8 + (j - 1) * 73, -248)
+    end
+    panel.key = s.key
+    p.panels[i] = panel
+  end
+  Label(p, "Prices move every minute. Moo-nsoons lift Hay Co., stampedes sink Kodo Logistics, Golden Moos lift Milk Futures.",
+    "GameFontDisableSmall", 6, -490, 710)
+end, refresh = function(p)
+  local m = ns.db.market
+  p.summary:SetText(("Milk: |cffffffff%s|r   Portfolio: |cffffffff%s|r   Realized profit: %s%s|r   Trades: %d"):format(
+    Fmt(ns:Milk()), Fmt(ns:Portfolio()), m.realized >= 0 and "|cff80ff80+" or "|cffff8080-", Fmt(math.abs(m.realized)), m.trades))
+  for _, panel in ipairs(p.panels) do
+    local key = panel.key
+    local h = m.history[key]
+    local price = m.prices[key]
+    local first = h[1] or price
+    local pct = first > 0 and (price - first) / first * 100 or 0
+    panel.price:SetText(("%.2f"):format(price))
+    panel.change:SetText(("%s%.1f%% over the chart|r"):format(pct >= 0 and "|cff80ff80+" or "|cffff8080", pct))
+    local lo, hi = math.huge, -math.huge
+    for _, v in ipairs(h) do lo = math.min(lo, v) hi = math.max(hi, v) end
+    for j, bar in ipairs(panel.chart) do
+      local v = h[#h - 60 + j]
+      if v then
+        local frac = hi > lo and (v - lo) / (hi - lo) or 0.5
+        bar:SetHeight(4 + frac * 66)
+        bar:Show()
+      else
+        bar:Hide()
+      end
+    end
+    local pl = ns:StockPL(key)
+    panel.holding:SetText(("You own %d shares worth %s milk\n%s%s|r unrealized"):format(m.shares[key],
+      Fmt(m.shares[key] * price), pl >= 0 and "|cff80ff80+" or "|cffff8080-", Fmt(math.abs(pl))))
+  end
+end, live = true }
+
+---------------------------------------------------------------------------
+-- Page: Herd Keepers (others running the addon) and Cow Duels
+---------------------------------------------------------------------------
+
+pages.keepers = { title = "Herd Keepers", icon = "Spell_Holy_PrayerOfFortitude", build = function(p)
+  Label(p, "Friends in your group or guild who also run Moolitism Helper. Their addon's lines never set off yours " ..
+    "(so no moo loops), but anything they type still counts. Challenge their cow to a Cow Duel: both copies compute " ..
+    "the same fight and the result goes to your party.", "GameFontHighlightSmall", 6, -6, 710)
+  p.accept = Check(p, 6, -56, "Accept Cow Duel challenges", function() return ns.db.triggers.cowDuels end,
+    function(v) ns.db.triggers.cowDuels = v end)
+  local hello = Btn(p, "Look for keepers", 140, 22, function() ns:SayHello(true) ns:Print("Said hello to your group and guild.") end)
+  hello:SetPoint("TOPRIGHT", -8, -54)
+  p.record = Label(p, "", "GameFontHighlight", 6, -86, 700)
+  p.list = ScrollList(p, 4, -112, 720, 400, 34, function(parent, w, h)
+    local r = RowFrame(parent, w, h)
+    r.name = Label(r, "", "GameFontNormal", 10, -9)
+    r.info = Label(r, "", "GameFontHighlightSmall", 200, -10, 360)
+    r.duel = Btn(r, "Cow Duel!", 100, 22, function(self) Say(ns:ChallengeDuel(self.target)) end)
+    r.duel:SetPoint("RIGHT", -8, 0)
+    return r
+  end, function(r, e)
+    r.name:SetText(e.name)
+    local cow = e.peer.cow
+    r.info:SetText(("v%s%s"):format(e.peer.version or "?", cow and ("   cow: %s (stage %d, %d xp)"):format(cow.name, cow.stage, cow.xp) or ""))
+    r.duel.target = e.name
+  end)
+  p.empty = Label(p, "|cff9d9d9dNobody else with the addon seen yet. They show up when they're in your group or guild.|r",
+    "GameFontHighlight", 10, -130, 700)
+end, refresh = function(p)
+  p.accept:SetChecked(ns.db.triggers.cowDuels and true or false)
+  local d = ns.db.duels or { fought = 0, won = 0 }
+  p.record:SetText(("Your cow's record: %d duels, %d wins."):format(d.fought, d.won))
+  local list = {}
+  for name, peer in pairs(ns.peers) do list[#list + 1] = { name = name, peer = peer } end
+  table.sort(list, function(a, b) return a.name < b.name end)
+  p.list:SetData(list)
+  if #list == 0 then p.empty:Show() else p.empty:Hide() end
+end, live = true }
+
+local PAGE_ORDER = { "moo", "meter", "channels", "triggers", "games", "bingo", "herd", "keepers", "bessie", "farm",
+  "market", "ach", "settings" }
 
 ---------------------------------------------------------------------------
 -- The window
@@ -922,8 +1163,8 @@ function ns:CreateBarn()
   for i, key in ipairs(PAGE_ORDER) do
     local page = pages[key]
     local t = CreateFrame("Button", nil, barn, BACKDROP_TEMPLATE)
-    t:SetSize(150, 44)
-    t:SetPoint("TOPLEFT", 12, -78 - (i - 1) * 48)
+    t:SetSize(150, 36)
+    t:SetPoint("TOPLEFT", 12, -76 - (i - 1) * 40)
     Backdrop(t, { 0.3, 0.18, 0.1, 0.95 }, { 0.55, 0.4, 0.22 }, 12)
     t.key = key
     t.sel = t:CreateTexture(nil, "ARTWORK")
@@ -931,7 +1172,7 @@ function ns:CreateBarn()
     t.sel:SetPoint("BOTTOMRIGHT", -3, 3)
     t.sel:SetColorTexture(1, 0.82, 0.2, 0.18)
     t.icon = t:CreateTexture(nil, "OVERLAY")
-    t.icon:SetSize(28, 28)
+    t.icon:SetSize(24, 24)
     t.icon:SetPoint("LEFT", 8, 0)
     t.icon:SetTexture(page.icon:find("\\") and page.icon or ("Interface\\Icons\\" .. page.icon))
     t.text = t:CreateFontString(nil, "OVERLAY", "GameFontNormal")

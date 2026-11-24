@@ -22,6 +22,7 @@ function ns:BumpCombo()
   if now - lastMooAt <= COMBO_WINDOW then self.combo = self.combo + 1 else self.combo = 1 end
   lastMooAt = now
   if self.combo > self.db.stats.bestCombo then self.db.stats.bestCombo = self.combo end
+  if self.combo == 10 then self:Signal("combo10") end
   return self.combo
 end
 
@@ -291,7 +292,6 @@ local function GroupUnits()
   return units
 end
 function ns:CheckPartyDeaths()
-  if not Trigger("partyDeath") then return end
   local seen = {}
   for _, unit in ipairs(GroupUnits()) do
     if UnitExists(unit) and not UnitIsUnit(unit, "player") then
@@ -300,10 +300,14 @@ function ns:CheckPartyDeaths()
       if Usable(name) and Usable(dead) then
         seen[name] = true
         if dead and wasDead[name] == false then
-          ToGroup(Pick({
-            "MOO OF MOURNING for %s. Mooooooooo.", "%s has fallen. The herd moos as one.",
-            "A single, respectful moo for %s.", "%s has gone to the great pasture in the sky. Moo.",
-          }):format(ns.ShortName(name)))
+          ns:Signal("friendDeath", ns.ShortName(name))
+          if Trigger("partyDeath") then
+            local text = Pick({
+              "MOO OF MOURNING for %s. Mooooooooo.", "%s has fallen. The herd moos as one.",
+              "A single, respectful moo for %s.", "%s has gone to the great pasture in the sky. Moo.",
+            }):format(ns.ShortName(name))
+            ns:RunAsHost("group", "mourn:" .. ns.ShortName(name), nil, function() ToGroup(text) end)
+          end
         end
         wasDead[name] = dead and true or false
       end
@@ -331,20 +335,27 @@ local mooBackLevel, lastMooBack = {}, {}
 function ns.SaysMoo(msg)
   return type(msg) == "string" and msg:lower():find("%f[%a]mo[o]+%f[%A]") ~= nil
 end
+local function MooBack(sender, key)
+  if ns.battle or ns.mooCheck then return end -- those games count moos; don't answer every one
+  local now = ns.Now()
+  if now - (lastMooBack[key] or -1000) < 3 then return end
+  if not ns:AllowAutoReply(sender) then return end
+  lastMooBack[key] = now
+  local level = (mooBackLevel[sender] or 0) + 1
+  mooBackLevel[sender] = level
+  ns.db.stats.mooBacks = ns.db.stats.mooBacks + 1
+  local text = ns.MooText(level + 1, "escalate")
+  if level >= 3 then text = text .. (" (moo-back #%d, %s started this)"):format(level, ns.ShortName(sender)) end
+  ns:Queue(key, text)
+end
+
 for event, key in pairs(MOO_BACK_EVENTS) do
   ns:On(event, function(msg, sender)
     if not Trigger("mooBack") or not Usable(msg) or not Usable(sender) then return end
     if ns.ShortName(sender) == UnitName("player") or not ns.SaysMoo(msg) then return end
-    if ns.battle or ns.mooCheck then return end -- those games count moos; don't answer every one
-    local now = ns.Now()
-    if now - (lastMooBack[key] or -1000) < 3 then return end
-    lastMooBack[key] = now
-    local level = (mooBackLevel[sender] or 0) + 1
-    mooBackLevel[sender] = level
-    ns.db.stats.mooBacks = ns.db.stats.mooBacks + 1
-    local text = ns.MooText(level + 1, "escalate")
-    if level >= 3 then text = text .. (" (moo-back #%d, %s started this)"):format(level, ns.ShortName(sender)) end
-    ns:Queue(key, text)
+    if ns:IsOwnOutput(msg) then return end
+    -- another copy of the addon mooing is not a person mooing: never moo back at it
+    ns:GateChat(sender, msg, function() MooBack(sender, key) end)
   end)
 end
 
@@ -461,6 +472,9 @@ local HELP = {
   "|cffffd100Guild games|r  add \"guild\" to any game: /moo trivia guild  (or set the default in the Barn's Games tab)",
   "|cffffd100Barnyard|r  /moo barn  |  /moo bessie [feed|pet|brush|show|name <name>]  |  /moo farm  |  /moo buy <thing>  |  /moo quests",
   "|cffffd100Herd & more|r  /moo herd  |  /moo ach [post]  |  /moo fm  |  /moo horoscope [name]  |  /moo echo <name|off>  |  /moo shame [post]",
+  "|cffffd100Moo Meter|r  /moo meter  |  /moo meter <damage|healing|taken|avoidable|interrupts|deaths|moos>  |  /moo meter overall  |  /moo meter post [mode] [overall]",
+  "|cffffd100Bingo & Market|r  /moo bingo [new]  |  /moo market  |  /moo invest <MILK|HAY|KODO> <amount|max>  |  /moo sell <stock> <amount|all>",
+  "|cffffd100Herd Keepers|r  /moo keepers  (others with the addon)  |  /moo duel <name>  (Cow Duel)",
   "|cffffd100Settings|r  /moo hear [dialect]  |  /moo cooldown <s>  |  /moo alarm <min>  |  /moo button  |  /moo stats",
   "|cffffd100Panic|r  /moo off  (stop all automatic moos)  |  /moo on",
 }
@@ -619,6 +633,51 @@ SlashCmdList.MOOHELPER = function(msg)
       local ch = ns:GroupChannel()
       if ch then ns:SendNow(ch, ("Moo-chievements: %d of %d earned, %d points. Moo."):format(done, total, points)) end
     elseif ns.OpenBarn then ns:OpenBarn("ach") end
+
+  elseif cmd == "meter" or cmd == "dps" then
+    local sub, after = SplitFirst(rest)
+    sub = sub:lower()
+    if sub == "post" then
+      local mode, which = SplitFirst(after)
+      local ok, why = ns:PostMeter(mode ~= "" and mode:lower() or nil, which:lower() == "overall" and "overall" or "last")
+      if not ok and why then ns:Print(why) end
+    elseif sub == "overall" or sub == "fight" or sub == "last" then
+      ns:SetMeterView(nil, sub == "overall" and "overall" or "last")
+      ns:ToggleMeter(true)
+    elseif sub ~= "" then
+      ns:SetMeterView(sub, nil)
+      ns:ToggleMeter(true)
+    else
+      ns:ToggleMeter()
+    end
+
+  elseif cmd == "duel" then
+    Result(ns:ChallengeDuel(rest))
+
+  elseif cmd == "keepers" then
+    local n = 0
+    for name, p in pairs(ns.peers) do
+      n = n + 1
+      ns:Print(("  %s (v%s)%s"):format(name, p.version or "?", p.cow and (": cow " .. p.cow.name) or ""))
+    end
+    if n == 0 then ns:Print("No other Moolitism Helper users seen in your group or guild yet.") end
+
+  elseif cmd == "bingo" then
+    if rest:lower() == "new" then ns:NewBingoCard() ns:Print("Fresh Moo Bingo card. Good luck.") end
+    if ns.OpenBarn then ns:OpenBarn("bingo") end
+
+  elseif cmd == "market" or cmd == "stocks" then
+    for _, s in ipairs(ns.STOCKS) do
+      ns:Print(("  %s %s: %.2f milk (you own %d)"):format(s.key, s.name, ns:StockPrice(s.key), ns.db.market.shares[s.key]))
+    end
+    if ns.OpenBarn then ns:OpenBarn("market") end
+
+  elseif cmd == "invest" or cmd == "sell" then
+    local ticker, qty = SplitFirst(rest)
+    qty = qty:lower()
+    if qty == "" then qty = "1" end
+    if cmd == "invest" then Result(ns:BuyStock(ticker:upper(), qty == "max" and "max" or qty))
+    else Result(ns:SellStock(ticker:upper(), (qty == "all" or qty == "max") and "all" or qty)) end
 
   elseif cmd == "barn" or cmd == "options" or cmd == "config" then
     if ns.ToggleBarn then ns:ToggleBarn() end

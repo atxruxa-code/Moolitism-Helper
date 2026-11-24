@@ -159,15 +159,18 @@ for event, source in pairs(CHAT_SOURCES) do
     if ns:IsOwnOutput(msg) then return end -- our own addon lines echoing back
     local name = ns.ShortName(sender)
     local isSelf = name == UnitName("player")
-    ns.recentSpeakers[source][name] = ns.Now()
-    for key, l in pairs(listeners) do
-      if (l.scope or ns.gameScope) == source then
-        local ok, err = pcall(l.fn, msg, name, isSelf, source)
-        if not ok then table.insert(ns.errors, "listener " .. key .. ": " .. tostring(err)) end
+    -- lines another copy of the addon posted are never answered or counted (no moo loops)
+    ns:GateChat(sender, msg, function()
+      ns.recentSpeakers[source][name] = ns.Now()
+      for key, l in pairs(listeners) do
+        if (l.scope or ns.gameScope) == source then
+          local ok, err = pcall(l.fn, msg, name, isSelf, source)
+          if not ok then table.insert(ns.errors, "listener " .. key .. ": " .. tostring(err)) end
+        end
       end
-    end
-    if source == "guild" and not ns.db.triggers.guildGames then return end
-    ns:Converse(msg, name, isSelf, source)
+      if source == "guild" and not ns.db.triggers.guildGames then return end
+      ns:Converse(msg, name, isSelf, source)
+    end)
   end)
 end
 
@@ -520,6 +523,8 @@ local function BegForMercy(name)
   lastMercy = now
   ns.mercyUntil = now + 600
   ns:Bump("mercyGranted")
+  -- the other copies in this chat go quiet too
+  if ns.ShareMercy then ns:ShareMercy(600, ns.startScope or "group") end
   return ("%s has begged for mercy. The herd will hold back the ambient moos for 10 minutes. ...moo."):format(name)
 end
 
@@ -740,9 +745,9 @@ ns.INTENTS = {
     end },
   { id = "help", match = function(n) return HasAny(n, { "what can you do", "how does this work", "moo help", "moohelper" }) end,
     run = function() return "Say: moo off, moo check, trivia, vote <question>, sing, roulette, fortune, roast me, compliment me, hall of shame, my stats, how many moos, translate <text>. Begging also works. Sometimes." end },
-  { id = "ask", match = function(_, msg, me) return me and msg:find("%?%s*$") ~= nil end,
+  { id = "ask", personal = true, match = function(_, msg, me) return me and msg:find("%?%s*$") ~= nil end,
     run = function(name) return ("%s asks the Magic Moo-Ball... %s"):format(name, Pick(EIGHT_BALL)) end },
-  { id = "mention", match = function(_, _, me) return me end,
+  { id = "mention", personal = true, match = function(_, _, me) return me end,
     run = function(name)
       return Pick({ "Moo? You rang, %s?", "MOO. (%s said my name)", "The cow hears you, %s. Moo.", "Yes, %s? ...Moo." }):format(name)
     end },
@@ -760,7 +765,7 @@ function ns:Converse(msg, name, isSelf, where)
   if p and not isSelf then
     pending[key] = nil
     local reply = p.react(msg)
-    if reply then
+    if reply and self:AllowAutoReply(name) then
       if p.say and inChat then p.say(reply) else Reply(where, reply) end
     end
     return
@@ -774,18 +779,28 @@ function ns:Converse(msg, name, isSelf, where)
   for _, intent in ipairs(ns.INTENTS) do
     if intent.match(norm, msg, mentionsMe) then
       talkCooldown[key] = now
-      local reply
       if intent.groupOnly and not inChat then
-        reply = "That's a party activity. Say it in party or guild chat and the whole herd can join. Moo."
-      else
+        local reply = "That's a party activity. Say it in party or guild chat and the whole herd can join. Moo."
+        if isSelf or self:AllowAutoReply(name) then Reply(where, reply) end
+        return intent.id
+      end
+      local function Run()
         -- a game asked for in guild chat runs in guild chat
         self.startScope = inChat and where or nil
         local ok, result = pcall(intent.run, name, msg, where)
         self.startScope = nil
         if not ok then error(result) end
-        reply = result
+        return result
       end
-      if reply then Reply(where, reply) end
+      local function Answer(reply)
+        if reply and (isSelf or self:AllowAutoReply(name)) then Reply(where, reply) end
+      end
+      if not inChat or intent.personal or not self.RunAsHost then
+        Answer(Run())
+      else
+        -- one copy in the chat does it, not one per copy
+        self:RunAsHost(where, intent.id .. ":" .. name, isSelf and UnitName("player") or name, function() Answer(Run()) end)
+      end
       return intent.id
     end
   end
@@ -823,18 +838,22 @@ ns:On("CHAT_MSG_WHISPER", function(msg, sender, _, _, _, flags)
   if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" then return end
   if flags == "GM" or flags == "DEV" then return end -- never auto-reply to Blizzard staff
   if not ns.db.triggers.autoReply or ns.db.panic then return end
+  ns:GateChat(sender, msg, function() ns:WhisperIn(msg, sender) end)
+end)
+
+function ns:WhisperIn(msg, sender)
   local key = "W:" .. sender
   local name = ns.ShortName(sender)
   -- an answer to our question, or something we understand ("fortune", "roast me"...)
   if pending[key] then ns:Converse(msg, name, false, key) return end
   if ns:Converse(msg, name, false, key) then return end
   local now = ns.Now()
-  if now - (whisperedAt[sender] or -1000) < 60 then return end
+  if now - (whisperedAt[sender] or -1000) < 60 or not ns:AllowAutoReply(name) then return end
   whisperedAt[sender] = now
   ns.db.stats.autoReplies = ns.db.stats.autoReplies + 1
   local opener = Pick(WHISPER_OPENERS)
   AskWhisper(sender, opener.q, { react = opener.react })
-end)
+end
 
 ---------------------------------------------------------------------------
 -- Ticking

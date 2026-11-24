@@ -121,6 +121,7 @@ function ns:ReadAvoidable()
   for i = 1, math.min(#offenders, self.db.shameMaxLines) do
     local o = offenders[i]
     self.db.stats.shame[o.name] = (self.db.stats.shame[o.name] or 0) + 1
+    self:Signal("shamed", o.name)
     if channel then self:Queue(channel, ShameLine(ns.Clean(o.name), ns.Clean(o.spell), FormatNumber(o.amount))) end
   end
   if #offenders > 0 and self.CheckAchievements then self:CheckAchievements() end

@@ -89,9 +89,11 @@ for _, event in ipairs({ "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RA
     if ns:IsOwnOutput(msg) or not ns.SaysMoo(msg) then return end
     local name = ns.ShortName(sender)
     if name == UnitName("player") then return end
-    local now = ns.Now()
-    if now - (lastMooPoint[name] or -1000) < 60 then return end
-    lastMooPoint[name] = now
-    ns:HerdAward(name, 1, "mooBacks")
+    ns:GateChat(sender, msg, function()
+      local now = ns.Now()
+      if now - (lastMooPoint[name] or -1000) < 60 then return end
+      lastMooPoint[name] = now
+      ns:HerdAward(name, 1, "mooBacks")
+    end)
   end)
 end

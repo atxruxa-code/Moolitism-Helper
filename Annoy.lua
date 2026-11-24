@@ -112,6 +112,7 @@ local function AfkTick()
       local st = afk[name]
       if isAfk and not st then
         afk[name] = { since = now, nags = 0, nextNag = now + NAG_EVERY }
+        ns:Signal("afk", name)
         if Ambient("afkStalk") then
           Group(("%s has gone AFK. The herd will moo at them until they return. Moo."):format(name))
         end
@@ -175,7 +176,8 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
   ns.db.stats.welcomes = ns.db.stats.welcomes + 1
   local text = Pick(WELCOMES):format(name)
   if guildNames[name] and IsInGuild() then
-    ns:Queue("GUILD", text)
+    -- one welcome per guild, however many copies are online
+    ns:RunAsHost("guild", "welcome:" .. name, nil, function() ns:Queue("GUILD", text) end)
   else
     ns:Queue("W:" .. full, text)
   end
@@ -213,7 +215,7 @@ ns:On("CHAT_MSG_SYSTEM", function(msg)
   end
   if text then
     lastRollComment = now
-    Group(text)
+    ns:RunAsHost("group", ("roll:%s:%d"):format(name, roll), name, function() Group(text) end)
   end
 end)
 
@@ -261,8 +263,9 @@ function ns:Forecast()
   self.char.lastForecast = today
   local hour = tonumber(date("%H")) or 12
   local part = hour < 12 and "morning" or (hour < 18 and "afternoon" or "evening")
-  self:Queue("GUILD", ("Good %s, herd. Today's moo forecast: %d%% chance of moo, with %s. Moo.")
-    :format(part, random(60, 100), Pick(FORECASTS)))
+  local text = ("Good %s, herd. Today's moo forecast: %d%% chance of moo, with %s. Moo.")
+    :format(part, random(60, 100), Pick(FORECASTS))
+  self:RunAsHost("guild", "forecast:" .. today, nil, function() self:Queue("GUILD", text) end)
   return true
 end
 

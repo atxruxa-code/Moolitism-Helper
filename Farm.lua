@@ -120,6 +120,10 @@ function ns:OnGameHosted()
 end
 function ns:OnAchievement(a)
   self:AddMilk(5 * (a.points or 0) + 10)
+  for _, fn in ipairs(ns.achListeners) do
+    local ok, err = pcall(fn, a)
+    if not ok then table.insert(ns.errors, "achievement listener: " .. tostring(err)) end
+  end
 end
 
 ---------------------------------------------------------------------------

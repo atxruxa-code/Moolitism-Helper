@@ -1,6 +1,6 @@
-# Moolitism Helper 3.1
+# Moolitism Helper 3.2
 
-Taurens moo. Now you do too. With a cow, a farm, a herd, 13 party games and 615 moo-chievements.
+Taurens moo. Now you do too. With a cow, a farm, a herd, 13 party games, a Moo Meter, Moo Bingo, a stock market and 630+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
 In game it calls itself MooHelper, and every command starts with `/moo`.
 
@@ -33,7 +33,7 @@ Bump `## Version` in `Moolitism-Helper.toc`, commit, then push a tag: `git tag v
 | The Herd | Your friends' herd ranks and points |
 | Bessie | Your cow: feed, pet, brush, show off, rename |
 | The Farm | Milk, 10 generators, 8 upgrades, daily Moo Quests |
-| Moo-chievements | All 615 achievements: categories, search, progress bars |
+| Moo-chievements | All 630+ achievements: categories, search, progress bars |
 | Settings | Effects, Hear Moo dialect, moo style, button size and position |
 
 ## HARD MUTE
@@ -55,6 +55,23 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.2
+
+- **Moo Meter** (`/moo meter`): a damage meter in moos. 1 moo = 1,000 damage, so 12,300 DPS is 12.3 MooPS.
+  Modes: damage, healing, damage taken, avoidable damage, interrupts, deaths, and moos (who mooed most in
+  party). Forever hides the numbers from addons during combat, so it fills in the moment each fight ends.
+  `/moo meter post [mode] [overall]` posts the top 5 to your group. Optional auto-post after boss kills.
+- **Moo Bingo** (`/moo bingo`): a 5x5 card that marks itself as things happen (a wipe, someone rolls a 1,
+  someone says sorry, a Golden Moo...). A line is BINGO (+1,000 milk, announced), the whole card is a BLACKOUT.
+- **Moo Market** (`/moo market`, `/moo invest <MILK|HAY|KODO> <qty|max>`, `/moo sell <stock> <qty|all>`):
+  trade milk for stocks whose prices move every minute and react to Moo-nsoons, stampedes and Golden Moos.
+- **Herd Keepers and Cow Duels** (`/moo keepers`, `/moo duel <name>`): copies of the addon find each other
+  through hidden addon messages. Challenge a friend's cow; both copies compute the same fight.
+- **Two copies in one party behave.** Copies never answer each other's lines (no moo-back loops), and a game,
+  roast, roll comment, welcome or forecast happens once per chat, not once per copy. Begging for mercy
+  quiets every copy. Backstop: at most 8 automatic replies a minute to any one person.
+- 19 new achievements in a "Barnyard Fun" category, and four new Barn tabs.
 
 ## What's new in 3.0
 

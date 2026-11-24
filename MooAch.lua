@@ -297,6 +297,54 @@ Tiers("weird", Stat("panicUsed"), { { "w_panic", "Cold Hooves", "Use the panic b
 Tiers("weird", Field("afkMoos"), { { "w_afk50", "Patient Stalker", "Moo at AFK friends 50 times.", 50, 15, "Spell_Nature_Sleep" } })
 Tiers("weird", Field("welcomes"), { { "w_welcome25", "Welcome Wagon", "Welcome 25 friends and guildmates.", 25, 15, "INV_Letter_01" } })
 
+---------------------------------------------------------------------------
+-- Barnyard Fun: the Moo Meter, Bingo, the Market, Herd Keepers and Cow Duels
+---------------------------------------------------------------------------
+
+A:AddCategory("fun", "Barnyard Fun")
+for j, key in ipairs(A.categoryOrder) do
+  if key == "fun" then table.remove(A.categoryOrder, j) break end
+end
+for j, key in ipairs(A.categoryOrder) do
+  if key == "weird" then table.insert(A.categoryOrder, j + 1, "fun") break end
+end
+
+Tiers("fun", Stat("meterOpened"), { { "x_meter", "Moo-surement", "Open the Moo Meter.", 1, 5, "INV_Misc_PocketWatch_01" } })
+Tiers("fun", Stat("meterFights"), {
+  { "x_fights10", "Data Driven", "Have the Moo Meter measure 10 fights.", 10, 5, "INV_Misc_PocketWatch_01" },
+  { "x_fights100", "Spreadsheet Cow", "Have the Moo Meter measure 100 fights.", 100, 15, "INV_Misc_PocketWatch_01" },
+})
+Tiers("fun", Stat("meterPosts"), {
+  { "x_post1", "Meter Maid", "Post the Moo Meter to your party.", 1, 5, "INV_Misc_Note_01" },
+  { "x_post25", "Parse Moo-nster", "Post the Moo Meter 25 times.", 25, 15, "INV_Misc_Note_01" },
+})
+Tiers("fun", Stat("bingos"), {
+  { "x_bingo1", "BINGO!", "Complete a line on a Moo Bingo card.", 1, 10, "INV_Misc_Note_02" },
+  { "x_bingo10", "Bingo Hall Regular", "Get 10 Moo Bingo lines.", 10, 20, "INV_Misc_Note_02" },
+})
+Tiers("fun", Stat("bingoBlackouts"), { { "x_blackout", "Blackout", "Mark every square on a Moo Bingo card.", 1, 30, "INV_Misc_Note_02" } })
+Tiers("fun", Stat("trades"), {
+  { "x_trade1", "Opening Bell", "Make a trade on the Moo Market.", 1, 5, "INV_Misc_Coin_02" },
+  { "x_trade100", "Day Trader", "Make 100 trades.", 100, 20, "INV_Misc_Coin_02" },
+})
+Tiers("fun", Stat("marketProfitBest"), {
+  { "x_profit1k", "Buy Low, Moo High", "Make 1,000 milk of profit on the Moo Market.", 1000, 15, "INV_Misc_Coin_01" },
+  { "x_profit100k", "Wolf of Moo Street", "Make 100,000 milk of profit on the Moo Market.", 100000, 40, "INV_Misc_Coin_01" },
+})
+Tiers("fun", Stat("portfolioBest"), { { "x_portfolio", "Moo-lionaire", "Hold stocks worth 1,000,000 milk.", 1000000, 50, "INV_Misc_Coin_01" } })
+Tiers("fun", Stat("peersMet"), {
+  { "x_peer1", "Fellow Keeper", "Meet someone else running Moolitism Helper.", 1, 10, "Spell_Holy_PrayerOfFortitude" },
+  { "x_peer10", "The Moo-vement", "Meet 10 other Moolitism Helper users.", 10, 25, "Spell_Holy_PrayerOfFortitude" },
+})
+Tiers("fun", Stat("cowDuels"), {
+  { "x_duel1", "Cow Fight!", "Fight a Cow Duel.", 1, 10, KODO },
+  { "x_duel25", "Cow Fight Club", "Fight 25 Cow Duels.", 25, 20, KODO },
+})
+Tiers("fun", Stat("cowDuelWins"), {
+  { "x_duelwin1", "Bovine Champion", "Win a Cow Duel.", 1, 10, KODO },
+  { "x_duelwin10", "Undefeated Udders", "Win 10 Cow Duels.", 10, 30, KODO },
+})
+
 -- re-check whenever MooHelper's numbers change, and every few seconds as a backstop
 local acc = 0
 table.insert(MH.tickFns, function()

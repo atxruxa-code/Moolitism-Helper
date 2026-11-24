@@ -39,7 +39,10 @@ local DEFAULTS = {
     rollComment = true, mountMoo = true, jumpMoo = true, countdown = true, forecast = true,
     -- the barnyard
     herdPromotions = true, bessieTalk = true, mooFM = true, events = true, goldenMoo = true,
-    guildGames = true },      -- guildmates can start and play games (and chat with the herd) in guild chat
+    guildGames = true,        -- guildmates can start and play games (and chat with the herd) in guild chat
+    cowDuels = true,          -- accept Cow Duels from friends who also run the addon
+    bingoAnnounce = true,     -- announce BINGO in group chat
+    meterAutoPost = false },  -- post the Moo Meter to group after each boss kill
   gameScope = "group",        -- where games you start run: "group" or "guild"
   interviewMinutes = 6,   -- how often the herd interviews a random party member
   mooCheckMinutes = 12,   -- how often everyone must prove they can moo
@@ -102,7 +105,10 @@ function ns:Bump(key, n)
   if not self.db then return end
   local c = self.db.stats.c
   c[key] = (c[key] or 0) + (n or 1)
-  if self.OnBump then self:OnBump(key, n or 1) end
+  for _, fn in ipairs(ns.bumpListeners) do
+    local ok, err = pcall(fn, key, n or 1)
+    if not ok then table.insert(ns.errors, "bump listener: " .. tostring(err)) end
+  end
   self:StatChanged()
 end
 
@@ -269,6 +275,23 @@ end
 
 -- Modules add functions here to hear about every moo sent: fn(channelKey)
 ns.mooListeners = {}
+-- ...every counter bump: fn(key, amount)
+ns.bumpListeners = {}
+-- ...every achievement earned: fn(achievement)
+ns.achListeners = {}
+
+-- Named moments other modules can react to: ns:Signal("friendDeath", "Bob")
+ns.signalListeners = {}
+function ns:OnSignal(name, fn)
+  self.signalListeners[name] = self.signalListeners[name] or {}
+  table.insert(self.signalListeners[name], fn)
+end
+function ns:Signal(name, ...)
+  for _, fn in ipairs(self.signalListeners[name] or {}) do
+    local ok, err = pcall(fn, ...)
+    if not ok then table.insert(ns.errors, "signal " .. name .. ": " .. tostring(err)) end
+  end
+end
 
 ---------------------------------------------------------------------------
 -- HARD MUTE
@@ -304,6 +327,8 @@ function ns:SendNow(key, text)
     return false
   end
   text = ns.Fit(text)
+  -- tell other copies of the addon "this line is mine", so they never answer it (no moo loops)
+  if self.MarkOutgoing then self:MarkOutgoing(key, text) end
   if key:sub(1, 3) == "CH:" then
     local id = GetChannelName(key:sub(4))
     if type(id) ~= "number" or id == 0 then return false end

@@ -310,7 +310,8 @@ function ns:IsMuted(key)
 end
 
 function ns:SetMuted(key, muted)
-  self.db.muted[ns.MuteKey(key)] = muted and true or nil
+  -- false, not nil: nil would let the defaults (Officer is muted out of the box) come back at /reload
+  self.db.muted[ns.MuteKey(key)] = muted and true or false
   if muted then
     -- also drop anything already waiting for that channel
     if self.DropQueued then self:DropQueued(key) end

@@ -185,11 +185,16 @@ function ns:Moo()
 end
 
 local function PerformEmote(token, unit)
+  if ns:IsMuted("EMOTE") then return false end -- HARD MUTE covers emotes too
   local emote = (C_ChatInfo and C_ChatInfo.PerformEmote) or DoEmote
   if emote then pcall(emote, token, unit) end
 end
 
 function ns:MooAtTarget()
+  if self:IsMuted("EMOTE") then
+    self:Print("Emote is HARD MUTED, so no /moo emote. Unmute it in the Barn (Channels).")
+    return
+  end
   if UnitExists("target") then
     PerformEmote("MOO", "target")
   else
@@ -528,7 +533,7 @@ SlashCmdList.MOOHELPER = function(msg)
 
   elseif cmd == "mutes" then
     local list = {}
-    for k in pairs(ns.db.muted) do list[#list + 1] = ns:ChannelLabel(k) end
+    for k, v in pairs(ns.db.muted) do if v == true then list[#list + 1] = ns:ChannelLabel(k) end end
     table.sort(list)
     ns:Print(#list > 0 and ("Hard muted: " .. table.concat(list, ", ")) or "No channels are hard muted.")
 

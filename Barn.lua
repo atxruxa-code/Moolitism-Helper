@@ -306,7 +306,8 @@ end, refresh = function(p)
     else
       row.send:Show()
       row.send:SetChecked(ns.db.channels[key] == true)
-      row.send:SetScript("OnClick", function(self) ns.db.channels[key] = self:GetChecked() and true or nil end)
+      -- false, not nil: nil would let the defaults switch it back on at the next /reload
+      row.send:SetScript("OnClick", function(self) ns.db.channels[key] = self:GetChecked() and true or false end)
     end
     row.mute.key = key
     row.mute:SetText(muted and "|cffff4040HARD MUTED|r" or "|cff80ff80open|r")

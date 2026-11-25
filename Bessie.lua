@@ -69,9 +69,13 @@ end
 
 local function OnCooldown(action)
   local b = B()
-  local last = b.lastAction[action] or -1000
-  if ns.Now() - last < (COOLDOWN[action] or 0) then return true end
-  b.lastAction[action] = ns.Now()
+  -- saved times use time() (the real clock): GetTime() counts from when the PC started, so a
+  -- saved GetTime() value looks like the future after a restart and the cooldown never ends
+  local now = time()
+  local last = b.lastAction[action]
+  if type(last) ~= "number" or last > now then last = nil end -- old GetTime() values, or a clock change
+  if last and now - last < (COOLDOWN[action] or 0) then return true end
+  b.lastAction[action] = now
   return false
 end
 

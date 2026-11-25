@@ -41,7 +41,7 @@ local function SendAddon(msg, channel, target)
 end
 
 local function Version()
-  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.2.0"
+  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.2.1"
 end
 
 local function CowFields()

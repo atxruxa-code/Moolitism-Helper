@@ -42,8 +42,11 @@ local DEFAULTS = {
     guildGames = true,        -- guildmates can start and play games (and chat with the herd) in guild chat
     cowDuels = true,          -- accept Cow Duels from friends who also run the addon
     bingoAnnounce = true,     -- announce BINGO in group chat
-    meterAutoPost = false },  -- post the Moo Meter to group after each boss kill
+    meterAutoPost = false,    -- post the Moo Meter to group after each boss kill
+    gtfoCallout = true,       -- Moo GTFO tells the party when you're standing in something
+    mournPoetry = true },     -- a short mournful moo-poem when a friend dies
   gameScope = "group",        -- where games you start run: "group" or "guild"
+  gtfo = { enabled = true, sound = true, flash = true, threshold = 15 }, -- Moo GTFO (threshold: % health in 1 s)
   interviewMinutes = 6,   -- how often the herd interviews a random party member
   mooCheckMinutes = 12,   -- how often everyone must prove they can moo
   effects = { combo = true, cowRain = true, hearMoo = false, stampede = true, mooVision = true },
@@ -356,6 +359,9 @@ end
 -- (The 1 s gap is what keeps the server from kicking you for chat flooding.)
 -- Higher priority goes first: 3 = party games, 2 = normal, 1 = filler (alarms, jumps).
 local MIN_GAP, PER_MINUTE, MAX_AGE = 1, 30, 45
+local MAX_QUEUE, MAX_TRIES, MAX_ERRORS = 40, 3, 50
+local GROUP_KEYS = { PARTY = true, RAID = true, INSTANCE_CHAT = true }
+ns.groupEpoch = 0 -- goes up every time you leave a group
 local queue, sentTimes, lastSent = {}, {}, -1000
 
 local function Locked()
@@ -370,7 +376,18 @@ function ns:Queue(key, text, priority, maxAge)
   if not key or self.db.panic then return false end
   if not ns.AutoAllowed(key) then return false end -- never automatic in Say/Yell/Emote/numbered channels
   if self:IsMuted(key) then ns.blockedByMute = ns.blockedByMute + 1 return false end
-  table.insert(queue, { key = key, text = text, created = ns.Now(), priority = priority or 2, maxAge = maxAge or MAX_AGE })
+  -- bounded: when full, the oldest lowest-priority line makes room (or this one is dropped)
+  if #queue >= MAX_QUEUE then
+    local worst
+    for i, q in ipairs(queue) do
+      if not q.manual and (not worst or q.priority < queue[worst].priority) then worst = i end
+    end
+    if not worst or queue[worst].priority > (priority or 2) then return false end
+    table.remove(queue, worst)
+  end
+  -- group lines remember which group they were for, so a new group never gets an old group's lines
+  table.insert(queue, { key = key, text = text, created = ns.Now(), priority = priority or 2, maxAge = maxAge or MAX_AGE,
+    epoch = GROUP_KEYS[key] and ns.groupEpoch or nil })
   return true
 end
 
@@ -379,8 +396,10 @@ function ns:QueueSize() return #queue end
 function ns:FlushQueue()
   local now = ns.Now()
   for i = #queue, 1, -1 do
-    if now - queue[i].created > queue[i].maxAge then table.remove(queue, i) end
+    local q = queue[i]
+    if now - q.created > q.maxAge or (q.epoch and q.epoch ~= ns.groupEpoch) then table.remove(queue, i) end
   end
+  while #ns.errors > MAX_ERRORS do table.remove(ns.errors, 1) end
   if #queue == 0 or Locked() then return end
   if now - lastSent < MIN_GAP then return end
   for i = #sentTimes, 1, -1 do
@@ -403,15 +422,50 @@ function ns:FlushQueue()
     table.remove(queue, best) -- muted since it was queued, or e.g. left the party
     return
   end
+  -- a failed attempt counts against the budget too, and a line that keeps failing is dropped
+  lastSent = now
+  table.insert(sentTimes, now)
   if self:SendNow(item.key, item.text) then
     table.remove(queue, best)
-    lastSent = now
-    table.insert(sentTimes, now)
+  else
+    item.tries = (item.tries or 0) + 1
+    if item.tries >= MAX_TRIES then table.remove(queue, best) end
   end
 end
 
 -- Drop everything queued (used when a party game is cancelled).
 function ns:ClearQueue() wipe(queue) end
+
+-- Drop queued automatic lines, keeping only your own launched barrages (panic).
+function ns:ClearAutoQueue()
+  for i = #queue, 1, -1 do if not queue[i].manual then table.remove(queue, i) end end
+end
+
+-- Leaving a group retires everything meant for it: queued lines, games, questions.
+local wasInGroup
+local function CheckGroup()
+  local inGroup = IsInGroup() and true or false
+  if wasInGroup and not inGroup then
+    ns.groupEpoch = ns.groupEpoch + 1
+    if ns.StopGames then ns:StopGames("group") end
+  end
+  wasInGroup = inGroup
+end
+ns:On("GROUP_ROSTER_UPDATE", CheckGroup)
+ns:On("GROUP_LEFT", CheckGroup)
+ns:On("PLAYER_LOGIN", function() wasInGroup = IsInGroup() and true or false end)
+
+-- The panic switch: everything automatic stops now, not just new lines.
+function ns:SetPanic(on)
+  self.db.panic = on and true or false
+  if on then
+    self:Bump("panicUsed")
+    self:ClearAutoQueue()
+    if self.StopGames then self:StopGames() end
+    self.meterPending = false
+  end
+  if self.RefreshBarn then self:RefreshBarn() end
+end
 
 -- Drop everything queued for one channel (used when it gets muted).
 function ns:DropQueued(key)

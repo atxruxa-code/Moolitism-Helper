@@ -1,4 +1,4 @@
-# Moolitism Helper 3.3
+# Moolitism Helper 3.4
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,31 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.4
+
+- **Moo-litism actually works now.** It used to give up 9 seconds after a fight and skipped any fight
+  whose damage-meter session it had already read, so if the game kept adding to one session it only ever
+  shamed the first fight. Now it counts only the avoidable damage that's new since the last read (works
+  either way), keeps checking for up to 2 minutes while the game hides the numbers, and checks again on
+  boss kills and zone changes. `/moo moolitism` shows exactly what the damage meter returned on your
+  client (please include it in bug reports); `/moo moolitism check` reads it right now.
+- **Moo GTFO** (`/moo gtfo`): a "get out of the fire" alarm. Forever blocks the combat log, so it watches
+  your health: a big hit (15% in a second, adjustable), a meltdown (40% in 3 seconds) or low health
+  plays the raid-warning sound, flashes MOO-VE! and (at most every 20 s) tells the party. If the GTFO
+  addon is installed, its alarms set off the moo too. `/moo gtfo test` to hear it.
+- **Mournful moo-poetry** when a friend dies (issue #6), and a wipe is now one mourning line, not one
+  per death.
+- **`/moo longmoo`**: the longest moo chat allows (issue #4).
+- Safety fixes from the code review in issue #5: whispers can't read the Hall of Moo-Shame or stats,
+  queued lines and games never carry over to a new group, `/moo off` stops games and queued lines at once,
+  the send queue and error log are capped, a line that keeps failing is dropped, and losing Moo-lette only
+  makes you yell if your Yell channel is checked.
+
+## Thanks
+
+Bug reports and reviews: jnick422, seantomecko, djgoins1 - and Llama, who we're told basically made the
+game usable. Every moo in this addon is a little longer because of you.
 
 ## What's new in 3.3
 

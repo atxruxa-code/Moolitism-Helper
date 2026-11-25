@@ -364,6 +364,12 @@ Tiers("fun", Stat("passBestTier"), {
   { "x_pass25", "Halfway There", "Reach tier 25 of a Moo Pass season.", 25, 20, "INV_Misc_Book_11" },
   { "x_pass50", "Season Champion", "Reach tier 50 of a Moo Pass season.", 50, 50, "INV_Misc_Book_11" },
 })
+Tiers("fun", Stat("gtfoAlarms"), {
+  { "x_gtfo1", "MOO-VE!", "Set off the Moo GTFO alarm.", 1, 5, "Spell_Fire_Fire" },
+  { "x_gtfo100", "Professional Floor Tank", "Set off the Moo GTFO alarm 100 times.", 100, 20, "Spell_Fire_Fire" },
+})
+Tiers("fun", Stat("poemsRecited"), { { "x_poem", "Moo-et Laureate", "Recite a mournful moo-poem for a fallen friend.", 1, 10, "INV_Misc_Book_09" } })
+Tiers("fun", Stat("longMoos"), { { "x_longmoo", "Moooooooooooooooo", "Send the longest moo chat allows.", 1, 5, KODO } })
 Tiers("fun", Stat("wrappedPosts"), { { "x_wrapped", "That's a Wrap", "Post your Moo Wrapped to your party.", 1, 10, "INV_Misc_Note_02" } })
 
 -- re-check whenever MooHelper's numbers change, and every few seconds as a backstop

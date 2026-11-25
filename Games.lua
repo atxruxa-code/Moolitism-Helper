@@ -153,6 +153,19 @@ local listeners = {}
 function ns:AddGroupListener(key, fn, scope) listeners[key] = { fn = fn, scope = scope } end
 function ns:RemoveGroupListener(key) listeners[key] = nil end
 
+-- End running games and forget pending party questions. scope "group": only if the game runs in
+-- group chat (leaving a group doesn't end a guild game). nil: everything (panic).
+function ns:StopGames(scope)
+  for k in pairs(ns.pending) do
+    if not scope or k:sub(1, 2) ~= "W:" then ns.pending[k] = nil end
+  end
+  if scope and self.gameScope ~= scope then return end
+  for _, field in ipairs({ "battle", "trivia", "vote", "mooCheck", "draw", "hangman", "scramble", "mathq", "tales", "boss" }) do
+    self[field] = nil
+  end
+  for k in pairs(listeners) do listeners[k] = nil end
+end
+
 for event, source in pairs(CHAT_SOURCES) do
   ns:On(event, function(msg, sender)
     if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" then return end
@@ -458,7 +471,7 @@ function ns:Roulette(player)
   self:Bump("played:roulette")
   if self.OnGameHosted then self:OnGameHosted() end
   if random(6) == 1 then
-    if player and player ~= UnitName("player") then
+    if player and not self.rouletteSelf then
       Group(("*spins the chamber* ... BANG. %s lost Moo-lette and owes the party one (1) ALL-CAPS MOO. Pay up."):format(player))
       self:Ask(player, ("%s, the herd is waiting for your ALL-CAPS MOO."):format(player), {
         react = function(msg)
@@ -468,9 +481,11 @@ function ns:Roulette(player)
         timeout = ("%s refused to pay their Moo-lette debt. Disgraceful. MOOOOO."):format(player),
         say = Group,
       })
-    else
+    elseif self.db.channels.YELL and not self:IsMuted("YELL") then
       ns.forceYell = true
       Group("*spins the chamber* ... BANG. I lost Moo-lette. My next moo will be a /yell. Moo.")
+    else
+      Group("*spins the chamber* ... BANG. I lost Moo-lette, but my Yell is switched off. Saved by settings. Moo.")
     end
     if self.MooVision then self:MooVision() end
   else
@@ -725,7 +740,7 @@ ns.INTENTS = {
     run = function(name) return Pick(ROASTS):format(name) .. " Moo." end },
   { id = "compliment", match = function(n) return Has(n, "compliment") end,
     run = function(name) return Pick(COMPLIMENTS):format(name) end },
-  { id = "shame", match = function(n) return HasAny(n, { "hall of shame", "moo shame", "shame list" }) end,
+  { id = "shame", private = true, match = function(n) return HasAny(n, { "hall of shame", "moo shame", "shame list" }) end,
     run = function()
       local list = {}
       for n2, c in pairs(ns.db.stats.shame) do list[#list + 1] = { n = n2, c = c } end
@@ -735,9 +750,9 @@ ns.INTENTS = {
       for i = 1, math.min(3, #list) do parts[#parts + 1] = ("%d. %s (%d)"):format(i, list[i].n, list[i].c) end
       return "Hall of Moo-Shame: " .. table.concat(parts, "  ")
     end },
-  { id = "mystats", match = function(n) return HasAny(n, { "my stats", "my moo stats", "how am i doing" }) end,
+  { id = "mystats", private = true, match = function(n) return HasAny(n, { "my stats", "my moo stats", "how am i doing" }) end,
     run = function(name) return TheirStats(name) end },
-  { id = "stats", match = function(n) return HasAny(n, { "how many moos", "moo stats", "your stats", "moo count" }) end,
+  { id = "stats", private = true, match = function(n) return HasAny(n, { "how many moos", "moo stats", "your stats", "moo count" }) end,
     run = function() return MyStats() end },
   { id = "translate", match = function(n) return HasAny(n, { "translate", "in moo" }) end,
     run = function(_, msg)
@@ -774,13 +789,20 @@ function ns:Converse(msg, name, isSelf, where)
   end
 
   local now = ns.Now()
-  if now - (talkCooldown[key] or -1000) < 3 then return end
+  if now - (talkCooldown[key] or -1000) < (inChat and 3 or 30) then
+    -- a whisper inside the cooldown is swallowed whole (no Moo-tomatic opener either)
+    if not inChat then return "cooldown" end
+    return
+  end
   local norm = ns.Normalize(msg)
   local me = UnitName("player")
   local mentionsMe = not isSelf and Usable(me) and me and Has(norm, me:lower())
   for _, intent in ipairs(ns.INTENTS) do
     if intent.match(norm, msg, mentionsMe) then
       talkCooldown[key] = now
+      -- saved stats (shame list, counts) are only shared with your own group, never by whisper
+      -- or in guild chat
+      if intent.private and where ~= "group" then return intent.id end
       if intent.groupOnly and not inChat then
         local reply = "That's a party activity. Say it in party or guild chat and the whole herd can join. Moo."
         if isSelf or self:AllowAutoReply(name) then Reply(where, reply) end
@@ -789,8 +811,9 @@ function ns:Converse(msg, name, isSelf, where)
       local function Run()
         -- a game asked for in guild chat runs in guild chat
         self.startScope = inChat and where or nil
+        self.rouletteSelf = isSelf -- who asked, by event (a same-named player on another realm isn't you)
         local ok, result = pcall(intent.run, name, msg, where)
-        self.startScope = nil
+        self.startScope, self.rouletteSelf = nil, nil
         if not ok then error(result) end
         return result
       end

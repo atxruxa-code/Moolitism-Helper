@@ -340,6 +340,7 @@ local TRIGGER_GROUPS = {
     { "autoReply", "Whisper conversations (whisper)" }, { "taurenTarget", "/moo at Taurens (emote)" },
     { "herdPromotions", "Herd promotions (group)" }, { "bessieTalk", "Bessie speaks up (group)" },
     { "guildGames", "Games and chat in guild (guild)" },
+    { "gtfoCallout", "Moo GTFO callouts (group)" }, { "mournPoetry", "Mournful moo-poetry (group)" },
   } },
   { "Ambient and guild", {
     { "alarm", "Moo Alarm (group)" }, { "mooClock", "Moo Clock (group)" }, { "clockGuild", "Moo Clock in guild (guild)" },
@@ -386,8 +387,7 @@ pages.triggers = { title = "Triggers", icon = "Spell_Holy_MindVision", build = f
     p["num" .. i] = { label = label, def = n }
   end
   local panic = Btn(p, "", 300, 30, function()
-    ns.db.panic = not ns.db.panic
-    if ns.db.panic then ns:Bump("panicUsed") end
+    ns:SetPanic(not ns.db.panic)
     ns:RefreshBarn()
   end)
   panic:SetPoint("TOPLEFT", 6, -430)

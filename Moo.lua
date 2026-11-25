@@ -305,15 +305,74 @@ local function IsGroupUnit(unit)
   return type(unit) == "string" and (unit:match("^party%d+$") ~= nil or unit:match("^raid%d+$") ~= nil)
 end
 
-local function Mourn(name)
-  ns:Signal("friendDeath", name)
-  if Trigger("partyDeath") then
-    local text = Pick({
+-- Mournful moo-poetry (GitHub issue #6). Short, original, and a little sad. %s is the fallen.
+ns.MOURN_POEMS = {
+  { "Here lies %s, who stood where they should not;", "the grass grows moo-ver the spot where they fought. Moo." },
+  { "O %s, fallen in the fray,", "the herd will moo for you today. ...Mooooo." },
+  { "Gone is %s, to pastures far,", "beneath the moo-nlight and the star. We mourn. We moo." },
+  { "Rest now, %s, your health is spent;", "the healer saw, and yet you went. ...moo." },
+  { "A haiku for %s:", "the floor was glowing red / they did not moo-ve away / now they eat the grass" },
+  { "%s mooed once, and mooed no more;", "their hit points lie upon the floor. Moo." },
+  { "Farewell, %s. The bell of the cow now tolls;", "it tolls for thee, and also for the floor you stood on. Moo." },
+  { "%s has left the herd. The pasture weeps.", "The hay is quiet. The milk is cold. Moooo... (a moment of silence)" },
+}
+
+-- Deaths are gathered for a moment, so a wipe is one line, not twenty.
+local MOURN_WAIT, POEM_GAP = 2.5, 90
+local mourning, lastPoem = nil, -1000
+
+local function ListNames(names)
+  if #names == 1 then return names[1] end
+  local shown = {}
+  for i = 1, math.min(#names, 5) do shown[#shown + 1] = names[i] end
+  local text = table.concat(shown, ", ", 1, #shown - 1) .. " and " .. shown[#shown]
+  if #names > 5 then text = table.concat(shown, ", ") .. (" and %d more"):format(#names - 5) end
+  return text
+end
+
+local function MournNow()
+  local names = mourning
+  mourning = nil
+  if not names or #names == 0 or not Trigger("partyDeath") then return end
+  table.sort(names)
+  local who = ListNames(names)
+  local text
+  if #names == 1 then
+    text = Pick({
       "MOO OF MOURNING for %s. Mooooooooo.", "%s has fallen. The herd moos as one.",
       "A single, respectful moo for %s.", "%s has gone to the great pasture in the sky. Moo.",
-    }):format(name)
-    ns:RunAsHost("group", "mourn:" .. name, nil, function() ToGroup(text) end)
+    }):format(who)
+  elseif #names >= 5 then
+    text = ("A MOO OF MOURNING for the fallen herd: %s. That was a wipe. Moooooo."):format(who)
+  else
+    text = ("MOO OF MOURNING for %s. The herd moos as one. Moooo."):format(who)
   end
+  local poem
+  local now = ns.Now()
+  if ns.db.triggers.mournPoetry and now - lastPoem >= POEM_GAP then
+    lastPoem = now
+    poem = Pick(ns.MOURN_POEMS)
+  end
+  ns:RunAsHost("group", "mourn:" .. table.concat(names, ","), nil, function()
+    ToGroup(text)
+    if poem then
+      for _, line in ipairs(poem) do
+        local ch = ns:GroupChannel()
+        if ch then ns:Queue(ch, ns.Fit((line:find("%%s") and line:format(who) or line)), 2, 30) end
+      end
+      ns:Bump("poemsRecited")
+    end
+  end)
+end
+
+local function Mourn(name)
+  ns:Signal("friendDeath", name)
+  if not mourning then
+    mourning = {}
+    C_Timer.After(MOURN_WAIT, MournNow)
+  end
+  for _, n in ipairs(mourning) do if n == name then return end end
+  mourning[#mourning + 1] = name
 end
 
 -- returns the unit's name when it was looked at
@@ -508,6 +567,7 @@ local HELP = {
   "|cffffd100Herd & more|r  /moo herd  |  /moo ach [post]  |  /moo fm  |  /moo horoscope [name]  |  /moo echo <name|off>  |  /moo shame [post]",
   "|cffffd100Moo Meter|r  /moo meter  |  /moo meter <damage|healing|taken|avoidable|interrupts|deaths|moos>  |  /moo meter overall  |  /moo meter post [mode] [overall]",
   "|cffffd100Bingo & Market|r  /moo bingo [new]  |  /moo market  |  /moo invest <MILK|HAY|KODO> <amount|max>  |  /moo sell <stock> <amount|all>",
+  "|cffffd100Moo-litism & GTFO|r  /moo shame [post]  |  /moo moolitism [check]  |  /moo gtfo [on|off|test|<percent>]  |  /moo longmoo [channel]",
   "|cffffd100Raid boss|r  /moo boss [guild]  (friends say \"raid boss\")  |  |cffffd100Moo Pass|r  /moo pass  |  /moo title [name|none]  |  |cffffd100Wrapped|r  /moo wrapped [post]",
   "|cffffd100Herd Keepers|r  /moo keepers  (others with the addon)  |  /moo duel <name>  (Cow Duel)",
   "|cffffd100Settings|r  /moo hear [dialect]  |  /moo cooldown <s>  |  /moo alarm <min>  |  /moo button  |  /moo stats",
@@ -776,12 +836,35 @@ SlashCmdList.MOOHELPER = function(msg)
     end
     ns:Print(("Hear Moo %s (%s)."):format(OnOff(ns.db.effects.hearMoo), ns.db.hearDialect or "classic"))
   elseif cmd == "off" then
-    ns.db.panic = true
-    ns:Bump("panicUsed")
+    ns:SetPanic(true)
     ns:Print("All automatic moos " .. OnOff(false) .. ". The button, /moo and /moo launch still work. /moo on to resume.")
   elseif cmd == "on" then
-    ns.db.panic = false
+    ns:SetPanic(false)
     ns:Print("Automatic moos " .. OnOff(true) .. ". You were warned.")
+  elseif cmd == "moolitism" or cmd == "elitism" then
+    for _, line in ipairs(ns:ShameStatus()) do ns:Print(line) end
+    if rest:lower() == "check" then ns:ShameCheck() ns:Print("Checking the damage meter now...") end
+
+  elseif cmd == "gtfo" then
+    local g, arg = ns.db.gtfo, rest:lower()
+    if arg == "on" or arg == "off" then g.enabled = arg == "on"
+    elseif arg == "sound" then g.sound = not g.sound
+    elseif arg == "flash" then g.flash = not g.flash
+    elseif arg == "test" then ns:GTFOAlarm("test")
+    elseif tonumber(arg) then g.threshold = math.max(5, math.min(tonumber(arg), 80))
+    end
+    ns:Print(("Moo GTFO is %s: alarm when you lose %d%% health in a second, sound %s, flash %s, party callouts %s%s.")
+      :format(g.enabled and "ON" or "OFF", g.threshold, g.sound and "on" or "off", g.flash and "on" or "off",
+        ns.db.triggers.gtfoCallout and "on" or "off", ns:RealGTFOHooked() and ", hooked into the GTFO addon" or ""))
+    if arg == "" then ns:Print("/moo gtfo on|off|test|sound|flash|<percent>") end
+
+  elseif cmd == "longmoo" then
+    -- the longest moo chat allows (GitHub issue #4: "all moos aren't long enough")
+    local key = rest ~= "" and ns:ResolveChannel(rest) or ns:GroupChannel() or "SAY"
+    if not key then ns:Print("Where? /moo longmoo <party|say|guild|...>") return end
+    local line = "M" .. string.rep("O", 250) .. "!!!!"
+    if ns:SendNow(key, line) then ns:Bump("longMoos") else ns:Print(ns:ChannelLabel(key) .. " is HARD MUTED (or not available).") end
+
   elseif cmd == "shame" then
     if ns.ShowShame then ns:ShowShame(rest == "post") end
   elseif cmd == "stats" then

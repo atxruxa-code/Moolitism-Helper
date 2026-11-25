@@ -20,6 +20,7 @@ ns.BINGO_SQUARES = {
   { "interview", "Interview answered" }, { "game", "A party game" }, { "cow_duel", "Cow Duel" },
   { "fire", "Someone stands in fire" }, { "afk", "Someone goes AFK" }, { "combo10", "10x moo combo" },
   { "achievement", "Moo-chievement" }, { "mount", "Mount up" }, { "tauren", "Spot a Tauren" },
+  { "raid_boss", "Slay a Moo Raid Boss" },
 }
 local LABEL = {}
 for _, s in ipairs(ns.BINGO_SQUARES) do LABEL[s[1]] = s[2] end
@@ -173,7 +174,7 @@ end
 -- MooHelper's own moments
 local BUMPS = { goldenMoos = "golden_moo", moonsoons = "moonsoon", stampedeHours = "stampede",
   bessieFeeds = "feed_bessie", barrages = "barrage", cipherEncoded = "cipher", promotions = "promotion",
-  fmSegments = "moo_fm", interviewsAnswered = "interview", cowDuels = "cow_duel" }
+  fmSegments = "moo_fm", interviewsAnswered = "interview", cowDuels = "cow_duel", bossKills = "raid_boss" }
 table.insert(ns.bumpListeners, function(key)
   if BUMPS[key] then Mark(BUMPS[key]) end
   if key:sub(1, 7) == "played:" then Mark("game") end

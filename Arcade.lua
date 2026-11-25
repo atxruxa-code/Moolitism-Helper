@@ -35,6 +35,7 @@ function ns:StartQuickDraw(starter)
   local ok, why = CanStart()
   if not ok then return false, why end
   self.draw = { phase = "wait", drawAt = ns.Now() + random(4, 9), out = {} }
+  if self.ShareQuiet then self:ShareQuiet(30) end
   Hosted("draw")
   Group(("QUICK DRAW MOO!%s When I say DRAW, the first to type MOO wins. Type early and you're OUT. Get ready...")
     :format(starter and (" " .. starter .. " wants a showdown.") or ""))

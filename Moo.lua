@@ -285,7 +285,10 @@ ns:On("CHAT_MSG_LOOT", function(msg)
   end
 end)
 
--- Party deaths: watch group members' units for alive -> dead
+-- Party deaths: watch group members' units for alive -> dead.
+-- Cheap on purpose: UNIT_HEALTH fires many times a second in a raid, so each event checks
+-- only the unit it's about (one name and one dead/alive lookup). The whole group is only
+-- rescanned when the roster changes, which is also when people who left are forgotten.
 local wasDead = {}
 local function GroupUnits()
   local units = {}
@@ -296,38 +299,55 @@ local function GroupUnits()
   end
   return units
 end
+
+-- party1-4 and raid1-40 only (not partypet1, raidpet3, ...)
+local function IsGroupUnit(unit)
+  return type(unit) == "string" and (unit:match("^party%d+$") ~= nil or unit:match("^raid%d+$") ~= nil)
+end
+
+local function Mourn(name)
+  ns:Signal("friendDeath", name)
+  if Trigger("partyDeath") then
+    local text = Pick({
+      "MOO OF MOURNING for %s. Mooooooooo.", "%s has fallen. The herd moos as one.",
+      "A single, respectful moo for %s.", "%s has gone to the great pasture in the sky. Moo.",
+    }):format(name)
+    ns:RunAsHost("group", "mourn:" .. name, nil, function() ToGroup(text) end)
+  end
+end
+
+-- returns the unit's name when it was looked at
+local function CheckUnit(unit)
+  if not UnitExists(unit) or UnitIsUnit(unit, "player") then return nil end
+  local name = UnitName(unit)
+  local dead = UnitIsDeadOrGhost(unit)
+  if not Usable(name) or not Usable(dead) or not name then return nil end
+  dead = dead and true or false
+  local before = wasDead[name]
+  if before == dead then return name end -- nothing changed: the common case, nothing to do
+  wasDead[name] = dead
+  -- the first look at someone only records them (they may have been dead before we arrived)
+  if dead and before == false then Mourn(ns.ShortName(name)) end
+  return name
+end
+
+-- full scan: on roster changes (and for tests)
 function ns:CheckPartyDeaths()
   local seen = {}
   for _, unit in ipairs(GroupUnits()) do
-    if UnitExists(unit) and not UnitIsUnit(unit, "player") then
-      local name = UnitName(unit)
-      local dead = UnitIsDeadOrGhost(unit)
-      if Usable(name) and Usable(dead) then
-        seen[name] = true
-        if dead and wasDead[name] == false then
-          ns:Signal("friendDeath", ns.ShortName(name))
-          if Trigger("partyDeath") then
-            local text = Pick({
-              "MOO OF MOURNING for %s. Mooooooooo.", "%s has fallen. The herd moos as one.",
-              "A single, respectful moo for %s.", "%s has gone to the great pasture in the sky. Moo.",
-            }):format(ns.ShortName(name))
-            ns:RunAsHost("group", "mourn:" .. ns.ShortName(name), nil, function() ToGroup(text) end)
-          end
-        end
-        wasDead[name] = dead and true or false
-      end
-    end
+    local name = CheckUnit(unit)
+    if name then seen[name] = true end
   end
   for name in pairs(wasDead) do
     if not seen[name] then wasDead[name] = nil end
   end
 end
-ns:On("UNIT_HEALTH", function(unit)
-  if type(unit) == "string" and (unit:find("^party") or unit:find("^raid")) then ns:CheckPartyDeaths() end
-end)
-ns:On("UNIT_FLAGS", function(unit)
-  if type(unit) == "string" and (unit:find("^party") or unit:find("^raid")) then ns:CheckPartyDeaths() end
-end)
+
+local function OnUnitEvent(unit)
+  if IsGroupUnit(unit) then CheckUnit(unit) end
+end
+ns:On("UNIT_HEALTH", OnUnitEvent)
+ns:On("UNIT_FLAGS", OnUnitEvent)
 ns:On("GROUP_ROSTER_UPDATE", function() ns:CheckPartyDeaths() end)
 
 -- Moo-backs: someone says "moo" in a group or guild channel, we moo back, harder each time
@@ -341,7 +361,8 @@ function ns.SaysMoo(msg)
   return type(msg) == "string" and msg:lower():find("%f[%a]mo[o]+%f[%A]") ~= nil
 end
 local function MooBack(sender, key)
-  if ns.battle or ns.mooCheck then return end -- those games count moos; don't answer every one
+  -- games that count moos (here, or hosted by another copy in this chat): don't answer every one
+  if ns.battle or ns.mooCheck or ns.boss or ns.draw or (ns.quietUntil or 0) > ns.Now() then return end
   local now = ns.Now()
   if now - (lastMooBack[key] or -1000) < 3 then return end
   if not ns:AllowAutoReply(sender) then return end
@@ -412,7 +433,15 @@ function ns:AlarmTick()
 end
 
 table.insert(ns.tickFns, function() ns:AlarmTick() end)
-table.insert(ns.tickFns, function() ns:CheckPartyDeaths() end)
+-- backstop for deaths the game sent no event for (values that were hidden, then readable):
+-- a full scan every 5 seconds, and only in a group
+local deathScan = 0
+table.insert(ns.tickFns, function()
+  deathScan = deathScan + 1
+  if deathScan < 5 then return end
+  deathScan = 0
+  if IsInGroup() or IsInRaid() then ns:CheckPartyDeaths() end
+end)
 
 ---------------------------------------------------------------------------
 -- Hear Moo: everyone else's chat looks like moo (your screen only)
@@ -479,6 +508,7 @@ local HELP = {
   "|cffffd100Herd & more|r  /moo herd  |  /moo ach [post]  |  /moo fm  |  /moo horoscope [name]  |  /moo echo <name|off>  |  /moo shame [post]",
   "|cffffd100Moo Meter|r  /moo meter  |  /moo meter <damage|healing|taken|avoidable|interrupts|deaths|moos>  |  /moo meter overall  |  /moo meter post [mode] [overall]",
   "|cffffd100Bingo & Market|r  /moo bingo [new]  |  /moo market  |  /moo invest <MILK|HAY|KODO> <amount|max>  |  /moo sell <stock> <amount|all>",
+  "|cffffd100Raid boss|r  /moo boss [guild]  (friends say \"raid boss\")  |  |cffffd100Moo Pass|r  /moo pass  |  /moo title [name|none]  |  |cffffd100Wrapped|r  /moo wrapped [post]",
   "|cffffd100Herd Keepers|r  /moo keepers  (others with the addon)  |  /moo duel <name>  (Cow Duel)",
   "|cffffd100Settings|r  /moo hear [dialect]  |  /moo cooldown <s>  |  /moo alarm <min>  |  /moo button  |  /moo stats",
   "|cffffd100Panic|r  /moo off  (stop all automatic moos)  |  /moo on",
@@ -666,6 +696,40 @@ SlashCmdList.MOOHELPER = function(msg)
       ns:Print(("  %s (v%s)%s"):format(name, p.version or "?", p.cow and (": cow " .. p.cow.name) or ""))
     end
     if n == 0 then ns:Print("No other Moolitism Helper users seen in your group or guild yet.") end
+
+  elseif cmd == "boss" or cmd == "raid" then
+    local scopeWord = rest:lower()
+    if scopeWord == "guild" or scopeWord == "party" or scopeWord == "group" then
+      ns.startScope = scopeWord == "guild" and "guild" or "group"
+    end
+    local ok, why = ns:StartBoss()
+    ns.startScope = nil
+    Result(ok, why)
+
+  elseif cmd == "pass" then
+    local p = ns.db.pass
+    local xp, need = ns:PassProgress()
+    ns:Print(("%s: tier %d of %d (%d/%d xp to the next), %d days left."):format(ns:PassSeasonName(), p.tier,
+      ns.PASS_TIERS, xp, need, ns:PassDaysLeft()))
+    if ns.OpenBarn then ns:OpenBarn("pass") end
+
+  elseif cmd == "title" then
+    if rest == "" then
+      local list = ns:TitleList()
+      ns:Print(#list > 0 and ("Your titles: " .. table.concat(list, ", ") .. ". /moo title <name> to wear one, /moo title none to remove.")
+        or "No titles yet. Every 5 Moo Pass tiers unlocks one.")
+    else
+      Result(ns:SetTitle(rest))
+    end
+
+  elseif cmd == "wrapped" then
+    if rest:lower() == "post" then
+      local ok, why = ns:PostWrapped()
+      if not ok then ns:Print(why) end
+    else
+      for _, line in ipairs(ns:WrappedLines()) do ns:Print(line) end
+      if ns.OpenBarn then ns:OpenBarn("wrapped") end
+    end
 
   elseif cmd == "bingo" then
     if rest:lower() == "new" then ns:NewBingoCard() ns:Print("Fresh Moo Bingo card. Good luck.") end

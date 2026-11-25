@@ -1,6 +1,6 @@
-# Moolitism Helper 3.2
+# Moolitism Helper 3.3
 
-Taurens moo. Now you do too. With a cow, a farm, a herd, 13 party games, a Moo Meter, Moo Bingo, a stock market and 630+ moo-chievements.
+Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
 In game it calls itself MooHelper, and every command starts with `/moo`.
 
@@ -33,7 +33,7 @@ Bump `## Version` in `Moolitism-Helper.toc`, commit, then push a tag: `git tag v
 | The Herd | Your friends' herd ranks and points |
 | Bessie | Your cow: feed, pet, brush, show off, rename |
 | The Farm | Milk, 10 generators, 8 upgrades, daily Moo Quests |
-| Moo-chievements | All 630+ achievements: categories, search, progress bars |
+| Moo-chievements | All 640+ achievements: categories, search, progress bars |
 | Settings | Effects, Hear Moo dialect, moo style, button size and position |
 
 ## HARD MUTE
@@ -55,6 +55,22 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.3
+
+- **Moo Raid Boss** (`/moo boss`, or a friend says "raid boss" in party chat): a co-op boss fight in
+  party (or guild) chat. Friends don't need the addon: every moo they type hits it. It fights back:
+  STAMPEDE (moo within 10 seconds or get trampled), SILENCE (don't moo: moos heal it), BULL'S-EYE (the
+  named player must moo). Enrages at half health (ALL-CAPS moos crit), wipes the party after 3 minutes.
+  Six bosses, a damage chart, loot, and a live Raid Boss tab in the Barn.
+- **Moo Pass** (`/moo pass`): a 50-tier season track, a new season every month. Everything you do earns
+  XP; every tier pays milk; every 5th tier unlocks a title (`/moo title`).
+- **Moo Wrapped** (`/moo wrapped`, `/moo wrapped post`): your whole moo history on one card.
+- With two copies in a party, moo-backs pause during moo-counting games (raid boss, MOO-OFF, Moo Check,
+  Quick Draw) on every copy, so a fight doesn't drown in moo-backs.
+- Party death checks are much cheaper: each health event checks only that unit (pets are skipped), and the
+  full-group scan runs on roster changes and every 5 seconds instead of every second.
+- 14 new achievements, a "Slay a Moo Raid Boss" Bingo square, and three new Barn tabs.
 
 ## What's new in 3.2
 

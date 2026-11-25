@@ -344,6 +344,27 @@ Tiers("fun", Stat("cowDuelWins"), {
   { "x_duelwin1", "Bovine Champion", "Win a Cow Duel.", 1, 10, KODO },
   { "x_duelwin10", "Undefeated Udders", "Win 10 Cow Duels.", 10, 30, KODO },
 })
+local BOSS_ICON = "INV_Misc_Head_Dragon_01"
+Tiers("fun", Stat("bossKills"), {
+  { "x_boss1", "Raid Boss Down", "Defeat a Moo Raid Boss.", 1, 10, BOSS_ICON },
+  { "x_boss10", "Farm Status", "Defeat 10 Moo Raid Bosses.", 10, 25, BOSS_ICON },
+  { "x_boss50", "Mythic Moo", "Defeat 50 Moo Raid Bosses.", 50, 50, BOSS_ICON },
+})
+Tiers("fun", Stat("bossTopDamage"), { { "x_bosstop", "Top of the Meters", "Do the most damage in a Moo Raid Boss kill.", 1, 15, "INV_Misc_PocketWatch_01" } })
+Tiers("fun", Stat("bossLoot"), { { "x_bossloot", "Need Before Greed", "Win the loot from a Moo Raid Boss.", 1, 10, "INV_Misc_Bag_10" } })
+Tiers("fun", Stat("bossFlawless"), { { "x_bossflawless", "Flawless Moo-ctory", "Kill a Moo Raid Boss with nobody trampled, no heals and no missed Bull's-Eye.", 1, 25, "Spell_Holy_SealOfWisdom" } })
+Tiers("fun", Stat("bossFast"), { { "x_bossfast", "Speed Kill", "Kill a Moo Raid Boss in a minute or less.", 1, 25, "Ability_Rogue_Sprint" } })
+Tiers("fun", Stat("bossDamage"), {
+  { "x_bossdmg1k", "Moo DPS", "Deal 1,000 damage to Moo Raid Bosses.", 1000, 10, "Ability_Warrior_Charge" },
+  { "x_bossdmg25k", "Pump Moo-ster", "Deal 25,000 damage to Moo Raid Bosses.", 25000, 30, "Ability_Warrior_Charge" },
+})
+Tiers("fun", Stat("bossWipes"), { { "x_bosswipe", "Learning the Fight", "Wipe to a Moo Raid Boss.", 1, 5, "Spell_Shadow_DeathScream" } })
+Tiers("fun", Stat("passBestTier"), {
+  { "x_pass10", "Pass Holder", "Reach tier 10 of a Moo Pass season.", 10, 10, "INV_Misc_Book_11" },
+  { "x_pass25", "Halfway There", "Reach tier 25 of a Moo Pass season.", 25, 20, "INV_Misc_Book_11" },
+  { "x_pass50", "Season Champion", "Reach tier 50 of a Moo Pass season.", 50, 50, "INV_Misc_Book_11" },
+})
+Tiers("fun", Stat("wrappedPosts"), { { "x_wrapped", "That's a Wrap", "Post your Moo Wrapped to your party.", 1, 10, "INV_Misc_Note_02" } })
 
 -- re-check whenever MooHelper's numbers change, and every few seconds as a backstop
 local acc = 0

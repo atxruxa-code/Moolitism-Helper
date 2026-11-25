@@ -6,6 +6,7 @@
 --                                        guild/whisper: "that line is from my addon"
 --   DUEL~id~cow~xp~stage~happiness       a Cow Duel challenge (whisper)
 --   DUELOK~id~cow~xp~stage~happiness     accepted; both copies compute the same fight
+--   QUIET~seconds                        I'm hosting a moo-counting game: hold your moo-backs
 --   MERCY~seconds                        someone begged and my cow granted mercy: all go quiet
 --   HOST~scope~id                        "I'm doing this one" (a game someone asked for, a roll
 --                                        comment, a welcome): the other copies stand down
@@ -41,7 +42,7 @@ local function SendAddon(msg, channel, target)
 end
 
 local function Version()
-  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.2.1"
+  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.3.0"
 end
 
 local function CowFields()
@@ -84,7 +85,7 @@ function ns:IsPeer(name) return self.peers[ns.ShortName(name)] ~= nil end
 local ADDON_STARTS = { "Moo-tomatic reply", "MOO TRIVIA", "MOO-OFF", "MOO INTERVIEW", "HERD PROMOTION",
   "MOO-CHIEVEMENT", "VOTE RESULTS", "OFFICIAL HERD VOTE", "MOO CHECK", "QUICK DRAW", "DRAW!!!", "MOO-GMAN",
   "COW SCRAMBLE", "MOO MATH", "MOO TALES", "MOO THEATER", "MOO FM", "BONG.", "WEATHER ALERT", "STAMPEDE HOUR",
-  "Moo-roscope", "Hall of Moo-Shame", "MOO METER", "Behold my cow", "COW DUEL", "BINGO! My Moo Bingo",
+  "Moo-roscope", "Hall of Moo-Shame", "MOO METER", "Behold my cow", "COW DUEL", "BINGO! My Moo Bingo", "RAID BOSS!", "MOO WRAPPED", "TRAMPLED:", "LOOT: [", "Damage: ",
   "BINGO BLACKOUT!", "MOO-CIPHER:", "Now performing", "~ ", "THE END", "MOO! Epic loot", "Moo? You rang",
   "VICTORY MOO", "MOO OF MOURNING" }
 function ns:LooksLikeAddonLine(text)
@@ -187,6 +188,14 @@ function ns:RunAsHost(scope, id, asker, fn)
   return "later"
 end
 
+-- a moo-counting game started here: the other copies in its chat hold their moo-backs
+-- (0 = it's over). Sent to the game's chat.
+ns.quietUntil = 0
+function ns:ShareQuiet(seconds)
+  local channel = self.GameChannel and self:GameChannel() or self:GroupChannel()
+  if channel and not self:IsMuted(channel) then SendAddon(Join("QUIET", math.floor(seconds)), channel) end
+end
+
 function ns:ShareMercy(seconds, scope)
   local channel = scope == "guild" and (IsInGuild() and "GUILD" or nil) or self:GroupChannel()
   if channel then SendAddon(Join("MERCY", math.floor(seconds)), channel) end
@@ -212,6 +221,35 @@ function ns:SayHello(force)
   if IsInGuild() then Hello("GUILD") end
 end
 
+---------------------------------------------------------------------------
+-- Sanitizing what other copies send. Another player's addon could be modified, so nothing in
+-- an addon message is trusted: names are cut to letters, numbers are clamped, ids are checked.
+---------------------------------------------------------------------------
+
+-- a whole number in [lo, hi], or the fallback (also for "inf", "nan" and other junk)
+function ns.SafeNumber(v, lo, hi, fallback)
+  local n = tonumber(v)
+  if not n or n ~= n then return fallback end
+  return math.floor(math.max(lo, math.min(n, hi)))
+end
+
+-- a cow name: letters, spaces, ' and - only, at most 24 characters
+function ns.SafeCowName(v)
+  local name = ns.Clean(v):gsub("[^%a%s'%-]", ""):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+  name = name:sub(1, 24):gsub("%s+$", "")
+  return name ~= "" and name or "Bessie"
+end
+
+local function SafeVersion(v)
+  v = tostring(v or "")
+  return v:match("^v?%d+%.%d+%.?%d*$") and v:sub(1, 12) or "?"
+end
+
+local function Stats(parts, first)
+  return { name = ns.SafeCowName(parts[first]), xp = ns.SafeNumber(parts[first + 1], 0, 10000000, 0),
+    stage = ns.SafeNumber(parts[first + 2], 1, 6, 1), happiness = ns.SafeNumber(parts[first + 3], 0, 100, 50) }
+end
+
 local function NotePeer(short, full, parts, channel)
   local p = ns.peers[short]
   local isNew = not p
@@ -219,8 +257,8 @@ local function NotePeer(short, full, parts, channel)
   p.full, p.seen = full, ns.Now()
   if channel == "GUILD" then p.guild = true end
   if parts then
-    p.version = parts[2]
-    p.cow = { name = parts[3], xp = tonumber(parts[4]) or 0, stage = tonumber(parts[5]) or 1, happiness = tonumber(parts[6]) or 50 }
+    p.version = SafeVersion(parts[2])
+    p.cow = Stats(parts, 3)
   end
   ns.peers[short] = p
   if isNew then
@@ -240,11 +278,6 @@ end
 
 local pendingDuels = {}
 
-local function Stats(parts, first)
-  return { name = (parts[first] and parts[first] ~= "") and parts[first] or "Bessie", xp = math.floor(tonumber(parts[first + 1]) or 0),
-    stage = math.max(1, math.min(tonumber(parts[first + 2]) or 1, 6)),
-    happiness = math.max(0, math.min(tonumber(parts[first + 3]) or 50, 100)) }
-end
 
 -- Deterministic: both copies get the same result from the same duel id and the same two cows.
 function ns.FightCows(id, a, b)
@@ -347,16 +380,23 @@ local function Split(text)
 end
 
 local function OnAddonMessage(prefix, text, channel, sender)
-  if prefix ~= PREFIX or not Usable(text) or not Usable(sender) or type(text) ~= "string" then return end
+  if prefix ~= PREFIX or not Usable(text) or not Usable(sender) or type(text) ~= "string" or type(sender) ~= "string" then return end
+  if #text > 255 or text:find("|", 1, true) then return end -- nothing we send is longer or carries escape codes
   local full = (Ambiguate and Ambiguate(sender, "none")) or sender
+  full = ns.Clean(full):sub(1, 64)
   local short = ns.ShortName(full)
-  if short == UnitName("player") then return end
+  if short == "" or short == UnitName("player") then return end
   local parts = Split(text)
+  if #parts > 8 then return end
   local kind = parts[1]
 
-  if kind == "SAID" and parts[2] then
+  if kind == "SAID" and parts[2] and parts[2]:match("^%x+$") and #parts[2] <= 8 then
     foreign[parts[2]] = ns.Now()
     NotePeer(short, full, nil, channel)
+  elseif kind == "QUIET" and tonumber(parts[2]) then
+    NotePeer(short, full, nil, channel)
+    local seconds = math.max(0, math.min(tonumber(parts[2]), 240))
+    ns.quietUntil = seconds > 0 and ns.Now() + seconds or 0
   elseif kind == "MERCY" and tonumber(parts[2]) then
     NotePeer(short, full, nil, channel)
     local untilT = ns.Now() + math.max(0, math.min(tonumber(parts[2]), 600))
@@ -364,7 +404,7 @@ local function OnAddonMessage(prefix, text, channel, sender)
       ns.mercyUntil = untilT
       ns:Print(("%s's cow granted mercy, so yours is holding back its ambient moos too. ...moo."):format(short))
     end
-  elseif kind == "HOST" and parts[2] and parts[3] then
+  elseif kind == "HOST" and (parts[2] == "group" or parts[2] == "guild") and parts[3] and #parts[3] <= 80 then
     NotePeer(short, full, nil, channel)
     claims[parts[2] .. "~" .. parts[3]] = ns.Now()
   elseif kind == "HI" then
@@ -377,7 +417,7 @@ local function OnAddonMessage(prefix, text, channel, sender)
       helloTo[key] = ns.Now()
       if channel == "GUILD" then Hello("GUILD") else Hello("WHISPER", full) end
     end
-  elseif kind == "DUEL" and parts[2] then
+  elseif kind == "DUEL" and parts[2] and parts[2]:match("^%d+$") and #parts[2] <= 12 then
     NotePeer(short, full, nil, channel)
     if not ns.db.triggers.cowDuels or ns.db.panic then return end
     local theirs = Stats(parts, 3)
@@ -407,5 +447,6 @@ ns:On("GROUP_ROSTER_UPDATE", function() ns:SayHello() end)
 table.insert(ns.tickFns, function()
   local now = ns.Now()
   for h, t in pairs(foreign) do if now - t > MARK_TTL then foreign[h] = nil end end
+  for k, t in pairs(claims) do if now - t > 60 then claims[k] = nil end end
   for name, p in pairs(ns.peers) do if now - p.seen > 3600 then ns.peers[name] = nil end end
 end)

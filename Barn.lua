@@ -1075,8 +1075,198 @@ end, refresh = function(p)
   if #list == 0 then p.empty:Show() else p.empty:Hide() end
 end, live = true }
 
-local PAGE_ORDER = { "moo", "meter", "channels", "triggers", "games", "bingo", "herd", "keepers", "bessie", "farm",
-  "market", "ach", "settings" }
+---------------------------------------------------------------------------
+-- Page: Moo Raid Boss
+---------------------------------------------------------------------------
+
+pages.boss = { title = "Raid Boss", icon = "INV_Misc_Head_Dragon_01", build = function(p)
+  Label(p, "A co-op boss fight in party chat. Friends don't need the addon: every moo they type hits it. " ..
+    "Dodge STAMPEDE (moo fast), keep quiet in SILENCE (moos heal it), answer your BULL'S-EYE. 3 minutes " ..
+    "before it enrages. Friends can start one by saying \"raid boss\".", "GameFontHighlightSmall", 6, -6, 710)
+  local random = Btn(p, "Summon a random boss", 170, 24, function() Say(ns:StartBoss()) end)
+  random:SetPoint("TOPLEFT", 6, -52)
+  for i, b in ipairs(ns.BOSSES) do
+    local btn = Btn(p, b.name, 176, 20, function() Say(ns:StartBoss(nil, i)) end)
+    btn:SetPoint("TOPLEFT", 6 + ((i - 1) % 4) * 180, -84 - math.floor((i - 1) / 4) * 24)
+  end
+  p.name = Label(p, "", "GameFontNormalLarge", 6, -142, 710)
+  p.hp = Bar(p, 712, 26, { 0.75, 0.12, 0.1 })
+  p.hp:SetPoint("TOPLEFT", 6, -168)
+  p.info = Label(p, "", "GameFontHighlight", 6, -202, 710)
+  p.mech = Label(p, "", "GameFontNormal", 6, -224, 710)
+  Section(p, "Damage", 6, -252, 710)
+  p.rows = {}
+  for i = 1, 8 do
+    local bar = Bar(p, 712, 20, { 0.7, 0.55, 0.3 })
+    bar:SetPoint("TOPLEFT", 6, -276 - (i - 1) * 24)
+    bar.right = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    bar.right:SetPoint("RIGHT", -6, 0)
+    p.rows[i] = bar
+  end
+  p.record = Label(p, "", "GameFontDisableSmall", 6, -474, 710)
+end, refresh = function(p)
+  local boss, last = ns.boss, ns.lastBoss
+  local rows = {}
+  if boss then
+    p.name:SetText(("%s, %s%s"):format(boss.name, boss.title, boss.phase == 2 and "  |cffff4040ENRAGED|r" or ""))
+    SetBar(p.hp, math.max(0, boss.hp), boss.maxHP, ("%d / %d  %s"):format(math.max(0, boss.hp), boss.maxHP, ns.BossHPBar(boss)))
+    p.hp:Show()
+    local left = math.floor(math.max(0, 180 - (ns.Now() - boss.started)))
+    p.info:SetText(("%d:%02d until it enrages and wipes the party. Healed: %d."):format(math.floor(left / 60), left % 60, boss.healed))
+    local m = boss.mech
+    p.mech:SetText(m and (m.open and ("|cffff8040NOW:|r " .. m.line) or "Casting...") or "")
+    for name, d in pairs(boss.dmg) do rows[#rows + 1] = { name = name, dmg = d } end
+  elseif last then
+    p.name:SetText(("%s: %s"):format(last.name, last.won and "|cff80ff80DEFEATED|r" or "|cffff4040WIPE|r"))
+    p.hp:Hide()
+    p.info:SetText(last.won and (("Killed in %d:%02d. Loot: [%s] to %s."):format(math.floor(last.seconds / 60), last.seconds % 60,
+      last.loot or "?", last.winner or "?")) or "It enraged. Moo harder next time.")
+    p.mech:SetText(last.flawless and "|cffffd100Flawless!|r Nobody trampled, no heals, no missed Bull's-Eye." or "")
+    for _, e in ipairs(last.top) do rows[#rows + 1] = e end
+  else
+    p.name:SetText("No boss yet.")
+    p.hp:Hide()
+    p.info:SetText("Summon one above, or have a friend say \"raid boss\" in party chat.")
+    p.mech:SetText("")
+  end
+  table.sort(rows, function(a, b) return a.dmg > b.dmg or (a.dmg == b.dmg and a.name < b.name) end)
+  local top = rows[1] and rows[1].dmg or 1
+  for i, bar in ipairs(p.rows) do
+    local r = rows[i]
+    if r then
+      SetBar(bar, r.dmg, top, ("%d. %s"):format(i, r.name))
+      bar.right:SetText(Fmt(r.dmg))
+      bar:Show()
+    else
+      bar:Hide()
+    end
+  end
+  local fastest = ns:GetStat("bossFastest")
+  p.record:SetText(("Kills: %d   Wipes: %d   Fastest kill: %s   Your boss damage: %s"):format(ns:GetStat("bossKills"),
+    ns:GetStat("bossWipes"), fastest > 0 and ("%d:%02d"):format(math.floor(fastest / 60), fastest % 60) or "-",
+    Fmt(ns:GetStat("bossDamage"))))
+end, live = true }
+
+---------------------------------------------------------------------------
+-- Page: Moo Pass
+---------------------------------------------------------------------------
+
+pages.pass = { title = "Moo Pass", icon = "INV_Misc_Book_11", build = function(p)
+  p.season = Label(p, "", "GameFontNormalLarge", 6, -6, 710)
+  p.tier = Label(p, "", "GameFontHighlight", 6, -30, 710)
+  p.bar = Bar(p, 712, 22, GOLD)
+  p.bar:SetPoint("TOPLEFT", 6, -52)
+  Label(p, "Earn XP from everything: moos (up to 300 a day), party games, bingo, raid bosses, Cow Duels, " ..
+    "quests, Bessie, trades and moo-chievements. Every tier pays milk; every 5th unlocks a title.",
+    "GameFontDisableSmall", 6, -82, 710)
+  p.cells = {}
+  for t = 1, ns.PASS_TIERS do
+    local cell = CreateFrame("Frame", nil, p, BACKDROP_TEMPLATE)
+    cell:SetSize(66, 40)
+    cell:SetPoint("TOPLEFT", 6 + ((t - 1) % 10) * 71, -112 - math.floor((t - 1) / 10) * 45)
+    Backdrop(cell, { 0.12, 0.08, 0.05, 0.9 }, { 0.45, 0.32, 0.18 }, 10)
+    cell.num = cell:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    cell.num:SetPoint("TOP", 0, -5)
+    cell.num:SetText(t)
+    cell.reward = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    cell.reward:SetPoint("BOTTOM", 0, 5)
+    cell.reward:SetText(ns.PASS_TITLES[t] and "TITLE" or Fmt(ns.PassReward(t)))
+    p.cells[t] = cell
+  end
+  Section(p, "Titles (click to wear)", 6, -346, 710)
+  p.titleButtons = {}
+  local i = 0
+  for t = 5, ns.PASS_TIERS, 5 do
+    local title = ns.PASS_TITLES[t]
+    if title then
+      i = i + 1
+      local b = Btn(p, title, 176, 22, function() Say(ns:SetTitle(title)) end)
+      b:SetPoint("TOPLEFT", 6 + ((i - 1) % 4) * 180, -370 - math.floor((i - 1) / 4) * 26)
+      b.title = title
+      p.titleButtons[i] = b
+    end
+  end
+  local none = Btn(p, "No title", 176, 22, function() Say(ns:SetTitle("none")) end)
+  none:SetPoint("TOPLEFT", 6 + (i % 4) * 180, -370 - math.floor(i / 4) * 26)
+  p.wearing = Label(p, "", "GameFontHighlight", 6, -456, 710)
+end, refresh = function(p)
+  local pass = ns.db.pass
+  if not pass then return end
+  p.season:SetText(("%s  |cff9d9d9d(%d days left)|r"):format(ns:PassSeasonName(), ns:PassDaysLeft()))
+  local xp, need = ns:PassProgress()
+  p.tier:SetText(("Tier %d of %d   %s total xp"):format(pass.tier, ns.PASS_TIERS, Fmt(pass.xp)))
+  SetBar(p.bar, xp, need, pass.tier >= ns.PASS_TIERS and "SEASON COMPLETE. MOO!" or ("%d / %d xp to tier %d"):format(xp, need, pass.tier + 1))
+  for t, cell in ipairs(p.cells) do
+    local got = pass.claimed[t]
+    local title = ns.PASS_TITLES[t]
+    if got then
+      Backdrop(cell, title and { 0.5, 0.36, 0.05, 0.95 } or { 0.2, 0.32, 0.12, 0.95 }, GOLD, 10)
+    else
+      Backdrop(cell, { 0.12, 0.08, 0.05, 0.9 }, title and GOLD or { 0.45, 0.32, 0.18 }, 10)
+    end
+  end
+  for _, b in ipairs(p.titleButtons) do
+    if pass.titles[b.title] then b:Enable() else b:Disable() end
+    if ns.db.title == b.title then b:LockHighlight() else b:UnlockHighlight() end
+  end
+  p.wearing:SetText(ns.db.title and ("Wearing: |cffffd100%s %s|r (shows in your Moo Wrapped)"):format(UnitName("player") or "", ns.db.title)
+    or "No title worn.")
+end, live = true }
+
+---------------------------------------------------------------------------
+-- Page: Moo Wrapped
+---------------------------------------------------------------------------
+
+local WRAP_TILES = {
+  { "Moos", function(d) return Fmt(d.moos) end },
+  { "Favourite channel", function(d) return d.channel end, function(d) return d.channelPct .. "% of your moos" end },
+  { "Best combo", function(d) return Fmt(d.combo) end },
+  { "Taurens spotted", function(d) return Fmt(d.taurens) end },
+  { "Moo-backs", function(d) return Fmt(d.mooBacks) end },
+  { "Games hosted", function(d) return Fmt(d.games) end, function(d) return "favourite: " .. d.favGame end },
+  { "Raid bosses slain", function(d) return Fmt(d.bossKills) end },
+  { "Bingo lines", function(d) return Fmt(d.bingos) end },
+  { "Cow Duels won", function(d) return ("%d / %d"):format(d.duels.won, d.duels.fought) end },
+  { "Milk made", function(d) return Fmt(d.milk) end },
+  { "Moo-chievements", function(d) return ("%d / %d"):format(d.achDone, d.achTotal) end, function(d) return Fmt(d.achPoints) .. " points" end },
+  { "Moo Pass", function(d) return "Tier " .. d.passTier end, function(d) return d.season end },
+}
+
+pages.wrapped = { title = "Wrapped", icon = "INV_Misc_Note_02", build = function(p)
+  p.head = Label(p, "", "GameFontNormalHuge", 6, -6, 710)
+  p.sub = Label(p, "", "GameFontHighlight", 6, -40, 710)
+  p.tiles = {}
+  for i, tile in ipairs(WRAP_TILES) do
+    local f = CreateFrame("Frame", nil, p, BACKDROP_TEMPLATE)
+    f:SetSize(174, 92)
+    f:SetPoint("TOPLEFT", 6 + ((i - 1) % 4) * 180, -68 - math.floor((i - 1) / 4) * 98)
+    Backdrop(f, { 0.16, 0.09, 0.05, 0.92 }, GOLD, 12)
+    Label(f, tile[1], "GameFontNormalSmall", 10, -8, 156)
+    f.big = Label(f, "", "GameFontHighlightLarge", 10, -30, 156)
+    f.small = Label(f, "", "GameFontDisableSmall", 10, -66, 156)
+    p.tiles[i] = f
+  end
+  p.verdict = Label(p, "", "GameFontNormal", 6, -370, 710)
+  p.friend = Label(p, "", "GameFontHighlight", 6, -398, 710)
+  local post = Btn(p, "Post my Wrapped to the party", 230, 26, function()
+    local ok, why = ns:PostWrapped()
+    Say(ok, not ok and why or nil)
+  end)
+  post:SetPoint("TOPLEFT", 6, -440)
+end, refresh = function(p)
+  local d = ns:WrappedData()
+  p.head:SetText(("MOO WRAPPED: %s%s"):format(UnitName("player") or "You", ns.db.title and (" " .. ns.db.title) or ""))
+  p.sub:SetText(("%s the %s and you, together since the first moo."):format(d.cow, d.cowStage))
+  for i, tile in ipairs(WRAP_TILES) do
+    p.tiles[i].big:SetText(tile[2](d))
+    p.tiles[i].small:SetText(tile[3] and tile[3](d) or "")
+  end
+  p.verdict:SetText("Verdict: you are " .. d.verdict)
+  p.friend:SetText(d.bestFriend and ("Your herd's most devoted member: |cffffd100%s|r"):format(d.bestFriend) or "")
+end }
+
+local PAGE_ORDER = { "moo", "meter", "channels", "triggers", "games", "boss", "bingo", "herd", "keepers", "bessie",
+  "farm", "market", "pass", "wrapped", "ach", "settings" }
 
 ---------------------------------------------------------------------------
 -- The window
@@ -1164,8 +1354,8 @@ function ns:CreateBarn()
   for i, key in ipairs(PAGE_ORDER) do
     local page = pages[key]
     local t = CreateFrame("Button", nil, barn, BACKDROP_TEMPLATE)
-    t:SetSize(150, 36)
-    t:SetPoint("TOPLEFT", 12, -76 - (i - 1) * 40)
+    t:SetSize(150, 28)
+    t:SetPoint("TOPLEFT", 12, -76 - (i - 1) * 32)
     Backdrop(t, { 0.3, 0.18, 0.1, 0.95 }, { 0.55, 0.4, 0.22 }, 12)
     t.key = key
     t.sel = t:CreateTexture(nil, "ARTWORK")
@@ -1173,7 +1363,7 @@ function ns:CreateBarn()
     t.sel:SetPoint("BOTTOMRIGHT", -3, 3)
     t.sel:SetColorTexture(1, 0.82, 0.2, 0.18)
     t.icon = t:CreateTexture(nil, "OVERLAY")
-    t.icon:SetSize(24, 24)
+    t.icon:SetSize(20, 20)
     t.icon:SetPoint("LEFT", 8, 0)
     t.icon:SetTexture(page.icon:find("\\") and page.icon or ("Interface\\Icons\\" .. page.icon))
     t.text = t:CreateFontString(nil, "OVERLAY", "GameFontNormal")

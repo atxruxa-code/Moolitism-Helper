@@ -66,7 +66,7 @@ function ns:ChatName(scope)
 end
 
 function ns:AnyGameRunning()
-  return self.battle or self.trivia or self.vote or self.mooCheck or (self.ArcadeBusy and self:ArcadeBusy())
+  return self.battle or self.trivia or self.vote or self.mooCheck or self.boss or (self.ArcadeBusy and self:ArcadeBusy())
 end
 
 -- Every game calls this first. Scope comes from where it was asked for (a guildmate saying
@@ -183,6 +183,7 @@ function ns:StartMooOff(seconds, starter)
   if not ok then return false, why end
   seconds = math.max(10, math.min(tonumber(seconds) or 30, 120))
   self.battle = { endsAt = ns.Now() + seconds, counts = {}, warned = false }
+  if self.ShareQuiet then self:ShareQuiet(seconds + 10) end
   self:Bump("played:battle")
   if self.OnGameHosted then self:OnGameHosted() end
   Group(("MOO-OFF! %sType MOO in %s chat for the next %d seconds. Most moos wins. GO! MOO!")
@@ -368,6 +369,7 @@ function ns:StartMooCheck(starter)
   local ok, why = self:BeginGame()
   if not ok then return false, why end
   self.mooCheck = { endsAt = ns.Now() + 20, passed = {} }
+  if self.ShareQuiet then self:ShareQuiet(30) end
   self:Bump("played:check")
   if self.OnGameHosted then self:OnGameHosted() end
   Group(("MOO CHECK!%s Everyone type moo in %s chat within 20 seconds. Failure will be noted.")

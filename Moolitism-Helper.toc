@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Moolitism Helper
-## Notes: Taurens moo. Now you do too. Loudly. Everywhere. With a cow, a farm, a herd, a Moo Meter, Bingo, a stock market and 630+ moo-chievements.
+## Notes: Taurens moo. Now you do too. Loudly. Everywhere. With a cow, a farm, a herd, a raid boss, a Moo Pass, a Moo Meter, Bingo, a stock market and 640+ moo-chievements.
 ## Author: avtikhomi
-## Version: 3.2.1
+## Version: 3.3.0
 ## SavedVariables: MooHelperDB, MooHelperAchDB
 ## SavedVariablesPerCharacter: MooHelperCharDB, MooHelperAchCharDB
 ## IconTexture: Interface\Icons\Ability_Mount_Kodo_01
@@ -23,6 +23,9 @@ Peers.lua
 Meter.lua
 Bingo.lua
 Market.lua
+Boss.lua
+Pass.lua
+Wrapped.lua
 Ach\AchCore.lua
 Ach\AchData.lua
 Ach\AchExpanded.lua

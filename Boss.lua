@@ -219,7 +219,7 @@ local function Finish(boss, won)
 end
 
 function ns:StartBoss(starter, which)
-  local ok, why = self:BeginGame()
+  local ok, why = self:BeginGame(false, "boss")
   if not ok then return false, why end
   local def = ns.BOSSES[tonumber(which) or 0] or Pick(ns.BOSSES)
   local players = #self:GameMembers() + 1
@@ -241,6 +241,7 @@ function ns:StartBoss(starter, which)
 end
 
 function ns:BossTick()
+  self:UseGameScope("boss")
   local boss = self.boss
   if not boss or boss.over then return end
   if self.db.panic then

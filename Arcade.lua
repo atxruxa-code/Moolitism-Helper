@@ -23,7 +23,7 @@ end
 function ns:ArcadeBusy()
   return self.draw or self.hangman or self.scramble or self.mathq or self.tales
 end
-local function CanStart(stateless) return ns:BeginGame(stateless) end
+local function CanStart(stateless, key) return ns:BeginGame(stateless, key) end
 
 ---------------------------------------------------------------------------
 -- Quick Draw Moo
@@ -32,7 +32,7 @@ local function CanStart(stateless) return ns:BeginGame(stateless) end
 local DRAW_LINE = "DRAW!!! TYPE MOO NOW!"
 
 function ns:StartQuickDraw(starter)
-  local ok, why = CanStart()
+  local ok, why = CanStart(false, "draw")
   if not ok then return false, why end
   self.draw = { phase = "wait", drawAt = ns.Now() + random(4, 9), out = {} }
   if self.ShareQuiet then self:ShareQuiet(30) end
@@ -60,6 +60,7 @@ function ns:StartQuickDraw(starter)
 end
 
 local function DrawTick()
+  ns:UseGameScope("draw")
   local d = ns.draw
   if not d then return end
   local now = ns.Now()
@@ -99,7 +100,7 @@ local function Solved(h)
 end
 
 function ns:StartHangman(starter)
-  local ok, why = CanStart()
+  local ok, why = CanStart(false, "hangman")
   if not ok then return false, why end
   local h = { word = Pick(ns.COW_WORDS), guessed = {}, wrong = {}, maxWrong = 6, idleUntil = ns.Now() + 90 }
   self.hangman = h
@@ -178,7 +179,7 @@ local function QuickQuestion(stateKey, question, check, reveal, points)
 end
 
 function ns:StartScramble(starter)
-  local ok, why = CanStart()
+  local ok, why = CanStart(false, "scramble")
   if not ok then return false, why end
   local pool = {}
   for _, w in ipairs(ns.COW_WORDS) do if #w >= 4 then pool[#pool + 1] = w end end
@@ -190,7 +191,7 @@ function ns:StartScramble(starter)
 end
 
 function ns:StartMath(starter)
-  local ok, why = CanStart()
+  local ok, why = CanStart(false, "mathq")
   if not ok then return false, why end
   local a, b, op, answer
   local kind = random(3)
@@ -205,6 +206,7 @@ end
 
 -- a hangman game nobody is playing ends after 90 quiet seconds, so it can't block other games
 local function HangmanTick()
+  ns:UseGameScope("hangman")
   local h = ns.hangman
   if h and ns.Now() >= h.idleUntil then
     ns.hangman = nil
@@ -216,6 +218,7 @@ end
 local function QuickTick()
   for _, key in ipairs({ "scramble", "mathq" }) do
     local st = ns[key]
+    ns:UseGameScope(key)
     if st and ns.Now() >= st.endsAt then
       ns[key] = nil
       ns:RemoveGroupListener(key)
@@ -235,7 +238,7 @@ local OPENINGS = {
 }
 
 function ns:StartTales(starter)
-  local ok, why = CanStart()
+  local ok, why = CanStart(false, "tales")
   if not ok then return false, why end
   local members = ns:GameMembers()
   if #members == 0 then
@@ -279,6 +282,7 @@ function ns:StartTales(starter)
 end
 
 local function TalesTick()
+  ns:UseGameScope("tales")
   local t = ns.tales
   if t and t.waiting and ns.Now() >= t.deadline then
     local who = t.waiting

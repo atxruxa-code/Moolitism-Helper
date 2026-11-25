@@ -65,19 +65,42 @@ function ns:ChatName(scope)
   return ch == "RAID" and "raid" or (ch == "INSTANCE_CHAT" and "instance" or "party")
 end
 
-function ns:AnyGameRunning()
-  return self.battle or self.trivia or self.vote or self.mooCheck or self.boss or (self.ArcadeBusy and self:ArcadeBusy())
+-- Each running game remembers its own chat, so a game in guild chat and a different game in
+-- party chat can run at the same time (one of each kind at a time).
+local listeners = {}
+local GAME_FIELDS = { battle = "MOO-OFF", trivia = "Moo Trivia", vote = "The Rigged Vote", mooCheck = "Moo Check",
+  draw = "Quick Draw Moo", hangman = "Moo-gman", scramble = "Cow Scramble", mathq = "Moo Math", tales = "Moo Tales",
+  boss = "Moo Raid Boss" }
+
+-- the chat ("group" or "guild") a running game is in
+function ns:GameScopeOf(key)
+  local l = listeners[key]
+  return l and l.scope or self.gameScope
+end
+
+-- before a game's own code talks, point Group() at that game's chat
+function ns:UseGameScope(key)
+  if self[key] then self.gameScope = self:GameScopeOf(key) end
+end
+
+-- a running game (its key), in one chat or anywhere
+function ns:AnyGameRunning(scope)
+  for key in pairs(GAME_FIELDS) do
+    if self[key] and (not scope or self:GameScopeOf(key) == scope) then return key end
+  end
 end
 
 -- Every game calls this first. Scope comes from where it was asked for (a guildmate saying
 -- "trivia" in guild chat, "/moo trivia guild") or the default chosen in the Barn.
-function ns:BeginGame(stateless)
+function ns:BeginGame(stateless, key)
   local scope = self.startScope or self.db.gameScope or "group"
-  if self:AnyGameRunning() then
-    -- one-off games (a song, a play) may join a running game's chat, but never move it
-    if not stateless or scope ~= self.gameScope then
-      return false, ("Another game is running in %s chat. Let it finish first."):format(self:ChatName())
-    end
+  if key and self[key] then
+    return false, ("%s is already running in %s chat. One at a time. Moo."):format(GAME_FIELDS[key] or "That game",
+      self:ChatName(self:GameScopeOf(key)))
+  end
+  -- one game per chat (one-off games, like a song, can join a chat with a game running)
+  if not stateless and self:AnyGameRunning(scope) then
+    return false, ("Another game is running in %s chat. Let it finish first."):format(self:ChatName(scope))
   end
   local ch = self:ScopeChannel(scope)
   if not ch then return false, scope == "guild" and "You need a guild for that." or "You need a group for that." end
@@ -147,10 +170,11 @@ local CHAT_SOURCES = {
   CHAT_MSG_GUILD = "guild",
 }
 
--- Game listeners: (msg, shortName, isSelf, source). A listener hears the chat its game runs in,
--- unless it asks for a fixed one ("group" for the echo).
-local listeners = {}
-function ns:AddGroupListener(key, fn, scope) listeners[key] = { fn = fn, scope = scope } end
+-- Game listeners: (msg, shortName, isSelf, source). A game's listener hears the chat that game
+-- started in (fixed when it's added); others may ask for a fixed one ("group" for the echo).
+function ns:AddGroupListener(key, fn, scope)
+  listeners[key] = { fn = fn, scope = scope or (GAME_FIELDS[key] and self.gameScope) or nil }
+end
 function ns:RemoveGroupListener(key) listeners[key] = nil end
 
 -- End running games and forget pending party questions. scope "group": only if the game runs in
@@ -159,11 +183,13 @@ function ns:StopGames(scope)
   for k in pairs(ns.pending) do
     if not scope or k:sub(1, 2) ~= "W:" then ns.pending[k] = nil end
   end
-  if scope and self.gameScope ~= scope then return end
-  for _, field in ipairs({ "battle", "trivia", "vote", "mooCheck", "draw", "hangman", "scramble", "mathq", "tales", "boss" }) do
-    self[field] = nil
+  for field in pairs(GAME_FIELDS) do
+    if self[field] and (not scope or self:GameScopeOf(field) == scope) then
+      self[field] = nil
+      listeners[field] = nil
+    end
   end
-  for k in pairs(listeners) do listeners[k] = nil end
+  if not scope then for k in pairs(listeners) do listeners[k] = nil end end
 end
 
 for event, source in pairs(CHAT_SOURCES) do
@@ -177,6 +203,7 @@ for event, source in pairs(CHAT_SOURCES) do
       ns.recentSpeakers[source][name] = ns.Now()
       for key, l in pairs(listeners) do
         if (l.scope or ns.gameScope) == source then
+          if GAME_FIELDS[key] then ns.gameScope = l.scope end
           local ok, err = pcall(l.fn, msg, name, isSelf, source)
           if not ok then table.insert(ns.errors, "listener " .. key .. ": " .. tostring(err)) end
         end
@@ -192,7 +219,7 @@ end
 ---------------------------------------------------------------------------
 
 function ns:StartMooOff(seconds, starter)
-  local ok, why = self:BeginGame()
+  local ok, why = self:BeginGame(false, "battle")
   if not ok then return false, why end
   seconds = math.max(10, math.min(tonumber(seconds) or 30, 120))
   self.battle = { endsAt = ns.Now() + seconds, counts = {}, warned = false }
@@ -211,6 +238,7 @@ function ns:StartMooOff(seconds, starter)
 end
 
 local function BattleTick()
+  ns:UseGameScope("battle")
   local battle = ns.battle
   if not battle then return end
   local left = battle.endsAt - ns.Now()
@@ -306,7 +334,7 @@ local function AskNext()
 end
 
 function ns:StartTrivia(rounds, starter)
-  local ok, why = self:BeginGame()
+  local ok, why = self:BeginGame(false, "trivia")
   if not ok then return false, why end
   rounds = math.max(1, math.min(tonumber(rounds) or 5, #ns.TRIVIA))
   self.trivia = { rounds = rounds, round = 0, scores = {}, asked = {}, nextAt = ns.Now() + 3 }
@@ -329,6 +357,7 @@ function ns:StartTrivia(rounds, starter)
 end
 
 local function TriviaTick()
+  ns:UseGameScope("trivia")
   local trivia = ns.trivia
   if not trivia then return end
   local now = ns.Now()
@@ -346,7 +375,7 @@ end
 ---------------------------------------------------------------------------
 
 function ns:StartVote(question, starter)
-  local ok, why = self:BeginGame()
+  local ok, why = self:BeginGame(false, "vote")
   if not ok then return false, why end
   question = ns.Clean(question ~= "" and question or "Should we moo?"):sub(1, 120)
   self.vote = { endsAt = ns.Now() + 20, yes = 0, no = 0, voted = {} }
@@ -366,6 +395,7 @@ function ns:StartVote(question, starter)
 end
 
 local function VoteTick()
+  ns:UseGameScope("vote")
   local vote = ns.vote
   if not vote or ns.Now() < vote.endsAt then return end
   ns:RemoveGroupListener("vote")
@@ -379,7 +409,7 @@ end
 ---------------------------------------------------------------------------
 
 function ns:StartMooCheck(starter)
-  local ok, why = self:BeginGame()
+  local ok, why = self:BeginGame(false, "mooCheck")
   if not ok then return false, why end
   self.mooCheck = { endsAt = ns.Now() + 20, passed = {} }
   if self.ShareQuiet then self:ShareQuiet(30) end
@@ -394,6 +424,7 @@ function ns:StartMooCheck(starter)
 end
 
 local function MooCheckTick()
+  ns:UseGameScope("mooCheck")
   local check = ns.mooCheck
   if not check or ns.Now() < check.endsAt then return end
   ns:RemoveGroupListener("mooCheck")

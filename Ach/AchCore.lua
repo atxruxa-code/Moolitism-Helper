@@ -224,7 +224,12 @@ end
 function ns:RequestEvaluate()
   if self.pending then return end
   self.pending = true
-  C_Timer.After(0.1, function() ns:Evaluate() end)
+  -- from a timer, so outside the event bus's error handling: one broken check is logged
+  -- instead of stopping every achievement (and erroring again on each re-check)
+  C_Timer.After(0.1, function()
+    local ok, err = pcall(ns.Evaluate, ns)
+    if not ok and MH.errors then table.insert(MH.errors, "achievements: " .. tostring(err)) end
+  end)
 end
 
 function ns:Evaluate()

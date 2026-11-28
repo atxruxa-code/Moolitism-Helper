@@ -42,7 +42,7 @@ local function SendAddon(msg, channel, target)
 end
 
 local function Version()
-  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.4.2"
+  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.4.3"
 end
 
 local function CowFields()
@@ -72,8 +72,12 @@ function ns:MarkOutgoing(key, text)
   end
 end
 
-function ns:IsForeignAddonLine(text)
-  local t = foreign[Hash(text)]
+-- A line is another copy's only if THAT player's copy marked it: someone without the addon
+-- typing the same words ("moo") a moment later is still a person talking.
+function ns:IsForeignAddonLine(text, sender)
+  local key = Hash(text)
+  if sender then key = ns.ShortName(sender) .. "~" .. key end
+  local t = foreign[key]
   return t ~= nil and ns.Now() - t < MARK_TTL
 end
 
@@ -98,13 +102,13 @@ end
 -- Every reader of party/guild chat and whispers goes through this. fn runs only for lines
 -- a person typed, never for lines another copy of the addon posted.
 function ns:GateChat(sender, text, fn)
-  if self:IsForeignAddonLine(text) then return end
+  if self:IsForeignAddonLine(text, sender) then return end
   local name = ns.ShortName(sender)
   if self:IsPeer(name) then
     if self:LooksLikeAddonLine(text) then return end
     -- the mark may arrive a moment after the chat line: wait for it before answering
     C_Timer.After(WAIT_FOR_MARK, function()
-      if not ns:IsForeignAddonLine(text) then fn() end
+      if not ns:IsForeignAddonLine(text, sender) then fn() end
     end)
     return
   end
@@ -391,7 +395,8 @@ local function OnAddonMessage(prefix, text, channel, sender)
   local kind = parts[1]
 
   if kind == "SAID" and parts[2] and parts[2]:match("^%x+$") and #parts[2] <= 8 then
-    foreign[parts[2]] = ns.Now()
+    foreign[parts[2]] = ns.Now()               -- (kept for callers that don't know the sender)
+    foreign[short .. "~" .. parts[2]] = ns.Now()
     NotePeer(short, full, nil, channel)
   elseif kind == "QUIET" and tonumber(parts[2]) then
     NotePeer(short, full, nil, channel)

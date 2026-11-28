@@ -567,6 +567,7 @@ local HELP = {
   "|cffffd100Herd & more|r  /moo herd  |  /moo ach [post]  |  /moo fm  |  /moo horoscope [name]  |  /moo echo <name|off>  |  /moo shame [post]",
   "|cffffd100Moo Meter|r  /moo meter  |  /moo meter <damage|healing|taken|avoidable|interrupts|deaths|moos>  |  /moo meter overall  |  /moo meter post [mode] [overall]",
   "|cffffd100Bingo & Market|r  /moo bingo [new]  |  /moo market  |  /moo invest <MILK|HAY|KODO> <amount|max>  |  /moo sell <stock> <amount|all>",
+  "|cffffd100Not reacting to someone?|r  /moo heard  (what happened to the last lines people typed, and why)",
   "|cffffd100Moo-litism & GTFO|r  /moo shame [post]  |  /moo moolitism [check]  |  /moo gtfo [on|off|test|<percent>]  |  /moo longmoo [channel]",
   "|cffffd100Raid boss|r  /moo boss [guild]  (friends say \"raid boss\")  |  |cffffd100Moo Pass|r  /moo pass  |  /moo title [name|none]  |  |cffffd100Wrapped|r  /moo wrapped [post]",
   "|cffffd100Herd Keepers|r  /moo keepers  (others with the addon)  |  /moo duel <name>  (Cow Duel)",
@@ -841,6 +842,13 @@ SlashCmdList.MOOHELPER = function(msg)
   elseif cmd == "on" then
     ns:SetPanic(false)
     ns:Print("Automatic moos " .. OnOff(true) .. ". You were warned.")
+  elseif cmd == "heard" then
+    -- what the addon did with the last lines other people typed (and why it ignored any)
+    local lines = ns:HeardLines(tonumber(rest) or 10)
+    if #lines == 0 then ns:Print("Nobody else has said anything in party, raid or guild chat yet.") end
+    ns:Print("Last lines from other people, and what MooHelper did:")
+    for _, line in ipairs(lines) do ns:Print("  " .. line) end
+
   elseif cmd == "moolitism" or cmd == "elitism" then
     for _, line in ipairs(ns:ShameStatus()) do ns:Print(line) end
     if rest:lower() == "check" then ns:ShameCheck() ns:Print("Checking the damage meter now...") end

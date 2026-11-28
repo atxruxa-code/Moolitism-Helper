@@ -1,4 +1,4 @@
-# Moolitism Helper 3.4.2
+# Moolitism Helper 3.4.3
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,15 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.4.3
+
+- Friends without the addon are heard more reliably. When a friend's copy of the addon posted a line,
+  anyone typing the same words (say, "moo moo") in the next 30 seconds was ignored; now only that
+  friend's own copy's line is skipped.
+- `/moo heard`: the last lines other people typed and what the addon did with each, with the reason when
+  it ignored one (hidden by the game during combat or encounters, cooldown, reply limit, no trigger
+  words, switched off...). If it doesn't react to someone, run this and you'll see why.
 
 ## What's new in 3.4.2
 

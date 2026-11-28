@@ -216,26 +216,68 @@ function ns:StopGames(scope)
   if not scope then for k in pairs(listeners) do listeners[k] = nil end end
 end
 
+-- What happened to the last lines other people typed, for /moo heard (so "it didn't react to
+-- my friend" can be answered with a reason instead of a guess)
+ns.heard = {}
+local function Heard(name, msg, source, what)
+  if name == UnitName("player") then return end
+  local h = ns.heard
+  h[#h + 1] = { t = ns.Now(), name = name or "?", source = source, what = what,
+    text = type(msg) == "string" and Usable(msg) and ns.Clean(msg):sub(1, 40) or "(hidden)" }
+  while #h > 15 do table.remove(h, 1) end
+end
+ns.NoteHeard = Heard
+
+local CONVERSE_REASON = { off = "chat replies are switched off (or /moo off)", cooldown = "too soon after their last line (3 s)",
+  answer = "taken as their answer to a question", private = "stats are only shared in your group" }
+
 for event, source in pairs(CHAT_SOURCES) do
   ns:On(event, function(msg, sender)
-    if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" then return end
+    if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" then
+      Heard(Usable(sender) and type(sender) == "string" and ns.ShortName(sender) or "?", nil, source,
+        "the game hid this line from addons (combat or encounter lockdown)")
+      return
+    end
     if ns:IsOwnOutput(msg, sender) then return end -- our own addon lines echoing back
     local name = ns.ShortName(sender)
     local isSelf = name == UnitName("player")
+    if ns:IsForeignAddonLine(msg, sender) then Heard(name, msg, source, "their copy of the addon posted it") end
     -- lines another copy of the addon posted are never answered or counted (no moo loops)
     ns:GateChat(sender, msg, function()
       ns.recentSpeakers[source][name] = ns.Now()
+      local games = {}
       for key, l in pairs(listeners) do
         if (l.scope or ns.gameScope) == source then
-          if GAME_FIELDS[key] then ns.gameScope = l.scope end
+          if GAME_FIELDS[key] then ns.gameScope = l.scope games[#games + 1] = GAME_FIELDS[key] end
           local ok, err = pcall(l.fn, msg, name, isSelf, source)
           if not ok then table.insert(ns.errors, "listener " .. key .. ": " .. tostring(err)) end
         end
       end
-      if source == "guild" and not ns.db.triggers.guildGames then return end
-      ns:Converse(msg, name, isSelf, source)
+      if source == "guild" and not ns.db.triggers.guildGames then
+        Heard(name, msg, source, #games > 0 and ("played in " .. table.concat(games, ", ")) or "guild chat games are switched off")
+        return
+      end
+      ns.replyBlocked = nil
+      local result = ns:Converse(msg, name, isSelf, source)
+      local what
+      if ns.replyBlocked then what = "matched, but their reply limit (8 a minute) is used up"
+      elseif result and CONVERSE_REASON[result] then what = CONVERSE_REASON[result]
+      elseif result then what = "answered (" .. result .. ")" end
+      if #games > 0 then what = "played in " .. table.concat(games, ", ") .. (what and ("; " .. what) or "") end
+      if not what and ns.SaysMoo(msg) then what = "a moo (moo-backs, Moo Meter, herd points)" end
+      Heard(name, msg, source, what or "no trigger words in it")
     end)
   end)
+end
+
+function ns:HeardLines(n)
+  local out = {}
+  local h = self.heard
+  for i = math.max(1, #h - (n or 10) + 1), #h do
+    local e = h[i]
+    out[#out + 1] = ("%ds ago, %s in %s: \"%s\" -> %s"):format(math.floor(ns.Now() - e.t), e.name, e.source, e.text, e.what)
+  end
+  return out
 end
 
 ---------------------------------------------------------------------------
@@ -843,7 +885,7 @@ local talkCooldown = {}
 
 -- where: "group", "guild" or "W:<sender>"
 function ns:Converse(msg, name, isSelf, where)
-  if self.db.panic or not self.db.triggers.interactions then return end
+  if self.db.panic or not self.db.triggers.interactions then return "off" end
   local inChat = where == "group" or where == "guild"
   local key = inChat and name or where
   -- someone answering a question we asked them comes first
@@ -853,15 +895,16 @@ function ns:Converse(msg, name, isSelf, where)
     local reply = p.react(msg)
     if reply and self:AllowAutoReply(name) then
       if p.say and inChat then p.say(reply) else Reply(where, reply) end
+    elseif reply then
+      self.replyBlocked = true
     end
-    return
+    return "answer"
   end
 
   local now = ns.Now()
   if now - (talkCooldown[key] or -1000) < (inChat and 3 or 30) then
     -- a whisper inside the cooldown is swallowed whole (no Moo-tomatic opener either)
-    if not inChat then return "cooldown" end
-    return
+    return "cooldown"
   end
   local norm = ns.Normalize(msg)
   local me = UnitName("player")
@@ -887,7 +930,8 @@ function ns:Converse(msg, name, isSelf, where)
         return result
       end
       local function Answer(reply)
-        if reply and (isSelf or self:AllowAutoReply(name)) then Reply(where, reply) end
+        if reply and (isSelf or self:AllowAutoReply(name)) then Reply(where, reply)
+        elseif reply then self.replyBlocked = true end
       end
       if not inChat or intent.personal or not self.RunAsHost then
         Answer(Run())
@@ -940,7 +984,8 @@ function ns:WhisperIn(msg, sender)
   local name = ns.ShortName(sender)
   -- an answer to our question, or something we understand ("fortune", "roast me"...)
   if pending[key] then ns:Converse(msg, name, false, key) return end
-  if ns:Converse(msg, name, false, key) then return end
+  local result = ns:Converse(msg, name, false, key)
+  if result and result ~= "off" then return end -- ("off": chat replies are off; the opener has its own switch)
   local now = ns.Now()
   if now - (whisperedAt[sender] or -1000) < 60 or not ns:AllowAutoReply(name) then return end
   whisperedAt[sender] = now

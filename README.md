@@ -1,4 +1,4 @@
-# Moolitism Helper 3.4.3
+# Moolitism Helper 3.5
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,14 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.5
+
+- **Moo Quest: The Pasture Lands** (`/pasture` or `/mooquest`): a small point-and-click RPG in its own
+  window. Click a tile to walk there; click trees, rocks, ponds and bushes to gather; fight monsters;
+  eat food; and sell your haul to Trader Moo-rgan for real MooHelper milk. Six skills level from 1 to 50.
+  It's all on your screen: Moo Quest never posts to chat.
+- Five new Moo Quest achievements.
 
 ## What's new in 3.4.3
 

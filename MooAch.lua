@@ -371,6 +371,14 @@ Tiers("fun", Stat("gtfoAlarms"), {
 Tiers("fun", Stat("poemsRecited"), { { "x_poem", "Moo-et Laureate", "Recite a mournful moo-poem for a fallen friend.", 1, 10, "INV_Misc_Book_09" } })
 Tiers("fun", Stat("longMoos"), { { "x_longmoo", "Moooooooooooooooo", "Send the longest moo chat allows.", 1, 5, KODO } })
 Tiers("fun", Stat("wrappedPosts"), { { "x_wrapped", "That's a Wrap", "Post your Moo Wrapped to your party.", 1, 10, "INV_Misc_Note_02" } })
+local QUEST_ICON = "Spell_Nature_Polymorph_Cow"
+Tiers("fun", Stat("rpgOpened"), { { "x_rpg1", "Into the Pasture Lands", "Start Moo Quest (/pasture).", 1, 5, QUEST_ICON } })
+Tiers("fun", Stat("rpgTotalLevel"), {
+  { "x_rpg50", "Well-Rounded Calf", "Reach total level 50 in Moo Quest.", 50, 15, QUEST_ICON },
+  { "x_rpg150", "Master of the Pasture", "Reach total level 150 in Moo Quest.", 150, 40, QUEST_ICON },
+})
+Tiers("fun", Stat("rpgKodoKills"), { { "x_rpgkodo", "Kodo Wrangler", "Defeat a Wild Kodo in Moo Quest.", 1, 15, "Ability_Mount_Kodo_01" } })
+Tiers("fun", Stat("rpgMilkEarned"), { { "x_rpgmilk", "Honest Trader", "Earn 1,000 milk selling to Trader Moo-rgan.", 1000, 15, "INV_Misc_Coin_02" } })
 
 -- re-check whenever MooHelper's numbers change, and every few seconds as a backstop
 local acc = 0

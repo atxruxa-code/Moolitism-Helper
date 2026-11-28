@@ -79,7 +79,10 @@ local function Counted(id)
   if not counted[id] then
     counted[id] = {}
     sessionOrder[#sessionOrder + 1] = id
-    while #sessionOrder > 6 do counted[table.remove(sessionOrder, 1)] = nil end
+    while #sessionOrder > 6 do
+      local old = table.remove(sessionOrder, 1)
+      counted[old], countedLength[old] = nil, nil
+    end
   end
   return counted[id]
 end
@@ -127,9 +130,11 @@ function ns:ReadAvoidable()
 
   local group = GroupNames()
   -- a session that got shorter was reset by the game (the "current" fallback reuses one id):
-  -- start counting it from zero again (issue #14)
+  -- start counting it from zero again (issue #14). The table is emptied in place: setting it to
+  -- nil made Counted() add the id to sessionOrder a second time, and after a few resets the
+  -- trim threw away the fresh table and the read below failed (issue #19).
   local length = Usable(session.durationSeconds) and type(session.durationSeconds) == "number" and session.durationSeconds or nil
-  if length and countedLength[id] and length < countedLength[id] then counted[id] = nil end
+  if length and countedLength[id] and length < countedLength[id] and counted[id] then wipe(counted[id]) end
   countedLength[id] = length or countedLength[id]
   local seen = Counted(id)
   local offenders, rows = {}, {}
@@ -194,7 +199,13 @@ end
 local pollToken = 0
 local function Poll(token, tries)
   if token ~= pollToken or ns.db.panic then return end
-  local result = ns:ReadAvoidable()
+  -- runs from a timer, outside the event bus's error handling: a failed read is logged, not thrown
+  local ok, result = pcall(ns.ReadAvoidable, ns)
+  if not ok then
+    table.insert(ns.errors, "moolitism: " .. tostring(result))
+    ns.shameDiag.result = "error: " .. tostring(result)
+    return
+  end
   if result ~= "retry" then return end
   if tries < 20 then
     C_Timer.After(POLL_EVERY, function() Poll(token, tries + 1) end)

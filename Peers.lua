@@ -105,6 +105,13 @@ function ns:LooksLikeAddonLine(text)
   return false
 end
 
+-- Timer callbacks run outside the event bus's error handling: run them the way it does, so a
+-- bug is logged in ns.errors instead of thrown at the player.
+local function Safe(label, fn, ...)
+  local ok, err = pcall(fn, ...)
+  if not ok then table.insert(ns.errors, label .. ": " .. tostring(err)) end
+end
+
 -- Every reader of party/guild chat and whispers goes through this. fn runs only for lines
 -- a person typed, never for lines another copy of the addon posted.
 function ns:GateChat(sender, text, fn)
@@ -114,7 +121,7 @@ function ns:GateChat(sender, text, fn)
     if self:LooksLikeAddonLine(text) then return end
     -- the mark may arrive a moment after the chat line: wait for it before answering
     C_Timer.After(WAIT_FOR_MARK, function()
-      if not ns:IsForeignAddonLine(text, sender) then fn() end
+      if not ns:IsForeignAddonLine(text, sender) then Safe("chat", fn) end
     end)
     return
   end
@@ -193,7 +200,7 @@ function ns:RunAsHost(scope, id, asker, fn)
   local asked = ns.Now()
   C_Timer.After(rank * HOST_GAP, function()
     if (claims[key] or -1000) >= asked - 1 then return end
-    Host()
+    Safe("host " .. key, Host)
   end)
   return "later"
 end
@@ -233,7 +240,7 @@ function ns:RunAsHostMany(scope, ids, fn)
       local key = scope .. "~" .. tostring(id):gsub(SEP, "")
       if (claims[key] or -1000) < asked - 1 then left[#left + 1] = id end
     end
-    Host(left)
+    Safe("host " .. scope, Host, left)
   end)
 end
 

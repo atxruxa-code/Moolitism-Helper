@@ -202,15 +202,15 @@ local function Poll(token, tries)
   -- runs from a timer, outside the event bus's error handling: a failed read is logged, not thrown
   local ok, result = pcall(ns.ReadAvoidable, ns)
   if not ok then
-    table.insert(ns.errors, "moolitism: " .. tostring(result))
+    ns:LogError("moolitism: " .. tostring(result), "moolitism")
     ns.shameDiag.result = "error: " .. tostring(result)
     return
   end
   if result ~= "retry" then return end
   if tries < 20 then
-    C_Timer.After(POLL_EVERY, function() Poll(token, tries + 1) end)
+    C_Timer.After(POLL_EVERY, ns.Safe("Shame.lua timer line 200", function() Poll(token, tries + 1) end))
   elseif tries < 44 then
-    C_Timer.After(5, function() Poll(token, tries + 1) end)
+    C_Timer.After(5, ns.Safe("Shame.lua timer line 202", function() Poll(token, tries + 1) end))
   end
 end
 
@@ -218,7 +218,7 @@ function ns:ShameCheck()
   if self.db.panic or not self.db.triggers.shame or not self:GroupChannel() then return end
   pollToken = pollToken + 1 -- a newer check replaces an older one
   local token = pollToken
-  C_Timer.After(POLL_EVERY, function() Poll(token, 1) end)
+  C_Timer.After(POLL_EVERY, ns.Safe("Shame.lua timer line 210", function() Poll(token, 1) end))
 end
 
 function ns:StopShameChecks() pollToken = pollToken + 1 end

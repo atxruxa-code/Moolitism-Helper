@@ -226,10 +226,7 @@ function ns:RequestEvaluate()
   self.pending = true
   -- from a timer, so outside the event bus's error handling: one broken check is logged
   -- instead of stopping every achievement (and erroring again on each re-check)
-  C_Timer.After(0.1, function()
-    local ok, err = pcall(ns.Evaluate, ns)
-    if not ok and MH.errors then table.insert(MH.errors, "achievements: " .. tostring(err)) end
-  end)
+  C_Timer.After(0.1, MH.Safe("achievement check", function() ns:Evaluate() end))
 end
 
 function ns:Evaluate()
@@ -240,9 +237,16 @@ function ns:Evaluate()
   while changed do -- loop so meta achievements resolve in the same pass
     changed = false
     for _, a in ipairs(self.list) do
-      if not self.char.completed[a.id] and self:IsMet(a) then
-        self:Award(a)
-        changed, earnedAny = true, true
+      -- one broken check is skipped (and recorded), not allowed to stop every other one
+      if not self.char.completed[a.id] and not a.broken then
+        local ok, met = pcall(self.IsMet, self, a)
+        if not ok then
+          a.broken = true
+          if MH.LogError then MH:LogError("achievement " .. tostring(a.id) .. ": " .. tostring(met), "achievement " .. tostring(a.id)) end
+        elseif met then
+          self:Award(a)
+          changed, earnedAny = true, true
+        end
       end
     end
   end

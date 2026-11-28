@@ -1,4 +1,4 @@
-# Moolitism Helper 3.6.2
+# Moolitism Helper 3.7
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,27 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.7
+
+- **The Lua error after a few fights is fixed** (issue #19, fixed by steckums): on clients where Moo-litism
+  reads the game's single "current fight" view, the 3.6.1 fix for #14 broke after about six fights and then
+  errored after every fight. Plus steckums' fixes for #20: wipe mourning posting twice, guild questions
+  dropped when you leave a group, a Moo-lette reminder going to the wrong chat, and more.
+- **No more Lua error floods.** Every per-frame script and timer in the addon now runs protected: an error
+  is recorded once (with where it came from), and a part that keeps failing switches itself off until
+  `/reload` instead of erroring every frame. MooScape pauses with a message instead of freezing, and a
+  broken achievement check is skipped instead of stopping all the others.
+- **`/moo errors`** shows the errors the addon hit; the last 30 are kept in your saved data, so a bug
+  report can include exactly what happened (`/moo errors clear` empties the list).
+- **MooScape plays like a proper skilling RPG:**
+  - right-click anything for its options (Chop down / Mine / Fish at / Attack / Talk-to / Trade-with /
+    Use / Walk here / Examine / Cancel); left-click does the first one, shown in the corner as you point
+  - right-click pack items to Wield, Wear, Eat, Drop or Examine them
+  - examine lines for every tile, monster, person and item
+  - "You swing your hoof-axe at the pine tree." / "You get some pine logs." messages, "+15 Woodcutting xp"
+    over your cow, and "Congratulations, you've just advanced a Woodcutting level."
+  - the skills tab shows what each level unlocks, and clicking a skill tells you the next unlock
 
 ## What's new in 3.6.2
 

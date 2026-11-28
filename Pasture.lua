@@ -580,8 +580,9 @@ function R:AddXP(skill, amount)
   local before = self:Level(skill)
   s.xp[skill] = (s.xp[skill] or 0) + amount
   local after = self:Level(skill)
+  if amount > 0 and s.x and s.y then self:Splat(s.x, s.y, ("+%d %s xp"):format(amount, SKILL_NAMES[skill]), { 1, 0.85, 0.2 }) end
   if after > before then
-    self:Say(("|cffffd100Level up!|r %s is now %d."):format(SKILL_NAMES[skill], after))
+    self:Say(("|cffffd100Congratulations, you've just advanced a %s level. You are now level %d.|r"):format(SKILL_NAMES[skill], after))
     if ns.Toast then ns:Toast("MOOSCAPE LEVEL UP", ("%s %d"):format(SKILL_NAMES[skill], after)) end
     self.big = { text = ("LEVEL UP!  %s %d"):format(SKILL_NAMES[skill], after), born = self.clock }
     if PlaySound then pcall(PlaySound, 888) end
@@ -712,10 +713,198 @@ function R:Click(x, y)
     self.action = { kind = kind, x = x, y = y, npc = npc, station = t.station }
     self.path = self:Path(x, y, true)
     self.actT = 0
-    if not self.path then self:Say("You can't reach that.") self.action = nil end
+    if not self.path then self:Say("You can't reach that.") self.action = nil return end
+    if kind == "gather" then
+      local start = R.START[GATHER[t.gather].skill] -- (START is declared further down)
+      if start then self:Say(start:format(t.name:lower())) end
+    end
     return
   end
-  self:Say(t.name .. ".")
+  self:Say(self:ExamineTile(x, y))
+end
+
+---------------------------------------------------------------------------
+-- Options, examine text, and what a click does
+---------------------------------------------------------------------------
+-- Everything in the world has an examine line, and right-clicking anything (a tile, a monster, a
+-- person, a pack item) lists what you can do with it. The first option is what a left-click does,
+-- and it's shown in the corner of the map while you point at something.
+
+local TILE_EXAMINE = {
+  ["Grass"] = "Lush, green and delicious. You resist. Barely.",
+  ["Path"] = "Worn smooth by a thousand hooves.",
+  ["Gate"] = "It leads somewhere else. Most gates do.",
+  ["Water"] = "Fish swim lazily below. Some of them are looking at you.",
+  ["Wall"] = "Solid. You could headbutt it, but you've learned.",
+  ["Old bones"] = "Something big died here a long time ago. Moo...",
+  ["Pine tree"] = "A sturdy pine. Good logs for a beginner.",
+  ["Ironbark tree"] = "Its bark rings like metal when you knock on it.",
+  ["Elderwood tree"] = "Ancient and enormous. The wood hums faintly.",
+  ["Copper rock"] = "A rock streaked with copper.",
+  ["Iron rock"] = "Dark ore glints in the stone.",
+  ["Silverhorn rock"] = "Pale ore that shines like a polished horn.",
+  ["Moo-berry bush"] = "Purple berries. Cows love them. You are a cow.",
+  ["Campfire"] = "Crackling and warm. Perfect for cooking fish.",
+  ["Furnace"] = "Hot enough to turn ore into bars.",
+  ["Anvil"] = "Heavy, flat and ready for hammering.",
+  ["Workbench"] = "Covered in leather scraps and tools.",
+  ["Trader Moo-rgan"] = "He'll buy almost anything. He pays in milk.",
+  ["Bank chest"] = "A sturdy chest. Your things are safe in here.",
+  ["Tree stump"] = "Someone chopped this down. Probably you.",
+  ["Empty rock"] = "There's no ore left. It'll come back.",
+  ["Picked bush"] = "Picked clean. Give it a moment.",
+}
+local MOB_EXAMINE = {
+  ["Prairie Wolf"] = "It hunts in the tall grass. It thinks you look like dinner.",
+  ["Bristleback Boar"] = "All tusk and temper.",
+  ["Rocktusk Gnoll"] = "It's guarding something shiny.",
+  ["Snapjaw"] = "Mostly teeth. The rest is also teeth.",
+  ["Thornback Stalker"] = "Eight legs, all of them sneaky.",
+  ["Rocktusk Brute"] = "Bigger than the other gnolls. Much bigger.",
+  ["Bone Kodo"] = "A kodo that forgot to stop walking after it died.",
+  ["The Bone Matriarch"] = "The oldest kodo in the graveyard. She remembers everything.",
+}
+local NPC_EXAMINE = {
+  hoofwise = "The village elder. Wise, patient, and very fond of chores for other cows.",
+  willowmoo = "A ranger who knows every path in the woods.",
+  brassbell = "Her hammer has never missed an anvil.",
+  gilmoo = "Smells of fish. Proudly.",
+}
+local ITEM_EXAMINE = {
+  logs = "Freshly chopped pine.", ironbark = "Heavy logs that ring when you drop them.",
+  elderwood = "Ancient wood. Still warm.", copper = "Ore with a reddish shine.", iron = "Dark, heavy ore.",
+  silverhorn = "Pale ore, light as a feather.", copperbar = "A bar of copper, ready for the anvil.",
+  ironbar = "A bar of iron.", silverbar = "A gleaming silverhorn bar.", minnow = "A tiny raw fish.",
+  trout = "A raw trout. Cook it first.", glimmerfin = "It glows faintly. Cook it anyway.",
+  cminnow = "A cooked minnow. One bite.", ctrout = "Nicely cooked trout.", cglimmer = "It still glows a little.",
+  burnt = "Oops.", berries = "Sweet, purple and good for you.", pelt = "Soft wolf fur.",
+  tusk = "A curved boar tusk.", scale = "A hard green scale.", thornhide = "Tough, spiky hide.",
+  trinket = "Shiny junk. Gnolls love it.", bone = "Old, heavy and slightly spooky.",
+  mhorn = "The Bone Matriarch's horn. Elder Hoofwise will want to see this.",
+}
+
+local VERB = { woodcutting = "Chop down", mining = "Mine", fishing = "Fish at", foraging = "Pick from" }
+local START = {
+  woodcutting = "You swing your hoof-axe at the %s.", mining = "You swing your pick at the %s.",
+  fishing = "You cast your line into the water.", foraging = "You start picking from the %s.",
+}
+R.VERB, R.START = VERB, START
+
+function R:ExamineTile(x, y)
+  local t = self:Tile(x, y)
+  return t and (TILE_EXAMINE[t.name] or (t.name .. ".")) or ""
+end
+function R:ExamineMob(def) return MOB_EXAMINE[def.name] or ("A level %d %s."):format(def.level, def.name:lower()) end
+function R:ExamineNPC(key) return NPC_EXAMINE[key] or (NPCS[key] and NPCS[key].name or "Someone") end
+function R:ExamineItem(item)
+  local it = ITEMS[item]
+  if not it then return "" end
+  local text = ITEM_EXAMINE[item] or (it.name .. ".")
+  if it.slot then text = ("%s +%d max hit, %d%% armor, +%d health. Needs Combat %d."):format(
+    it.name, it.atk or 0, (it.def or 0) * 100, it.hp or 0, it.req) end
+  return text
+end
+
+-- walk to a tile (or beside it, when you can't stand on it)
+function R:WalkTo(x, y)
+  local t = self:Tile(x, y)
+  if not t then return end
+  self.popup, self.action = nil, nil
+  self.path = self:Path(x, y, not t.walk or self:MobAt(x, y) ~= nil or self:NPCAt(x, y) ~= nil)
+  if not self.path then self:Say("You can't get there.") end
+end
+
+-- what you can do with a tile: { { label, run }, ... } (the first is the left-click), always ending in Cancel
+function R:Options(x, y)
+  local opts = {}
+  local t = self:Tile(x, y)
+  if not t then return opts end
+  local function add(label, run) opts[#opts + 1] = { label = label, run = run } end
+  local function click() self:Click(x, y) end
+  local mob, npc = self:MobAt(x, y), self:NPCAt(x, y)
+  if mob then
+    add(("Attack %s (level %d)"):format(mob.def.name, mob.def.level), click)
+    add("Walk here", function() self:WalkTo(x, y) end)
+    add("Examine " .. mob.def.name, function() self:Say(self:ExamineMob(mob.def)) end)
+  elseif npc then
+    local name = NPCS[npc] and NPCS[npc].name or "Someone"
+    add("Talk-to " .. name, click)
+    add("Examine " .. name, function() self:Say(self:ExamineNPC(npc)) end)
+  else
+    if t.gather then
+      add((VERB[GATHER[t.gather].skill] or "Use") .. " " .. t.name, click)
+    elseif t.station then
+      add("Use " .. t.name, click)
+    elseif t.use == "sell" then
+      add("Trade-with " .. t.name, click)
+    elseif t.use == "bank" then
+      add("Open " .. t.name, click)
+    end
+    if t.walk then add("Walk here", function() self:WalkTo(x, y) end) end
+    add("Examine " .. t.name, function() self:Say(self:ExamineTile(x, y)) end)
+  end
+  add("Cancel", function() end)
+  return opts
+end
+
+-- what you can do with a pack item
+function R:ItemOptions(item)
+  local it = ITEMS[item]
+  local opts = {}
+  if not it then return opts end
+  local function add(label, run) opts[#opts + 1] = { label = label, run = run } end
+  if it.slot then add((it.slot == "weapon" and "Wield " or "Wear ") .. it.name, function() self:Equip(item) end)
+  elseif it.heal then add("Eat " .. it.name, function() self:Eat(item) end) end
+  add("Drop " .. it.name, function() self:DropItem(item) end)
+  add("Examine " .. it.name, function() self:Say(self:ExamineItem(item)) end)
+  add("Cancel", function() end)
+  return opts
+end
+
+function R:DropItem(item)
+  local it = ITEMS[item]
+  if not it or self:Count(item) < 1 then return false end
+  if it.quest then self:Say("You can't drop that. Someone's waiting for it.") return false end
+  self:TakeItem(item, 1)
+  self:Say(("You drop the %s."):format(it.name))
+  self.dirty = true
+  return true
+end
+
+-- the line shown in the map's corner while you point at something
+function R:HoverText(x, y)
+  local opts = self:Options(x, y)
+  if #opts == 0 then return "" end
+  local more = #opts - 2 -- not counting the left-click itself and Cancel
+  return opts[1].label .. (more > 0 and (" / %d more option%s"):format(more, more == 1 and "" or "s") or "")
+end
+
+-- what each skill unlocks, for the skills tab
+function R:SkillGuide(skill)
+  local lines = {}
+  for key, g in pairs(GATHER) do
+    if g.skill == skill then
+      local tileName
+      for _, t in pairs(TILES) do if t.gather == key then tileName = t.name end end
+      lines[#lines + 1] = { req = g.req, text = ("%d: %s"):format(g.req, tileName or ITEMS[g.item].name) }
+      for _, b in ipairs(g.better or {}) do lines[#lines + 1] = { req = b.req, text = ("%d: %s"):format(b.req, ITEMS[b.item].name) } end
+    end
+  end
+  for _, list in pairs(RECIPES) do
+    for _, r in ipairs(list) do
+      if r.skill == skill then lines[#lines + 1] = { req = r.req, text = ("%d: %s"):format(r.req, ITEMS[r.out].name) } end
+    end
+  end
+  if skill == "combat" then
+    for _, key in ipairs(ITEM_ORDER) do
+      local it = ITEMS[key]
+      if it.slot then lines[#lines + 1] = { req = it.req, text = ("%d: %s"):format(it.req, it.name) } end
+    end
+  end
+  table.sort(lines, function(a, b) return a.req < b.req or (a.req == b.req and a.text < b.text) end)
+  local out = {}
+  for _, l in ipairs(lines) do out[#out + 1] = l.text end
+  return out
 end
 
 local function DoGather(self, a)
@@ -739,6 +928,7 @@ local function DoGather(self, a)
     self:AddXP(g.skill, xp)
     ns:Bump("rpgGathered")
     self:Splat(a.x, a.y, "+1 " .. ITEMS[item].name, { 1, 0.9, 0.5 })
+    self:Say(("You get some %s."):format(ITEMS[item].name:lower()))
     if g.deplete and random() < g.deplete then
       self.depleted[#self.depleted + 1] = { x = a.x, y = a.y, c = self.grid[a.y][a.x], at = self.clock + g.respawn }
       self.grid[a.y][a.x] = g.into
@@ -1091,7 +1281,11 @@ local function Row(i)
   r.bar:SetStatusBarColor(0.85, 0.65, 0.2, 0.55)
   r.left = Text(r, "GameFontHighlightSmall", "LEFT", 7, 0, PANEL_W - 90)
   r.right = Text(r, "GameFontNormalSmall", "RIGHT", -7, 0)
-  r:SetScript("OnClick", function(self) if self.onClick then self.onClick() R:Refresh() end end)
+  r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  r:SetScript("OnClick", function(self, button)
+    if button == "RightButton" and self.options then R:ShowMenu(self.options(), self) return end
+    if self.onClick then self.onClick() R:Refresh() end
+  end)
   r:SetScript("OnEnter", function(self)
     if not self.tip then return end
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
@@ -1125,20 +1319,32 @@ local function FillPanel(self)
     for _, k in ipairs(SKILLS) do
       local level, xp = self:Level(k), s.xp[k] or 0
       local from, to = R.XPFor(level), R.XPFor(level + 1)
+      local guide = self:SkillGuide(k)
+      local tip = level >= MAX_LEVEL and (SKILL_NAMES[k] .. ": mastered") or ("%s: %d xp, %d to level %d"):format(SKILL_NAMES[k], xp, to - xp, level + 1)
+      if #guide > 0 then tip = tip .. "\n\nUnlocks (level: what)\n" .. table.concat(guide, "\n") end
       rows[#rows + 1] = { left = SKILL_NAMES[k], right = tostring(level),
-        fill = level >= MAX_LEVEL and 1 or (xp - from) / math.max(1, to - from),
-        tip = level >= MAX_LEVEL and (SKILL_NAMES[k] .. ": mastered") or ("%s: %d xp, %d to level %d"):format(SKILL_NAMES[k], xp, to - xp, level + 1) }
+        fill = level >= MAX_LEVEL and 1 or (xp - from) / math.max(1, to - from), tip = tip,
+        click = function()
+          local nextUp
+          for _, line in ipairs(guide) do
+            local req = tonumber(line:match("^(%d+)"))
+            if req and req > level then nextUp = line break end
+          end
+          R:Say(nextUp and ("%s %d. Next unlock at level %s."):format(SKILL_NAMES[k], level, nextUp)
+            or ("%s %d. You've unlocked everything it offers."):format(SKILL_NAMES[k], level))
+        end }
     end
     rows[#rows + 1] = { left = "Total level", right = tostring(self:TotalLevel()) }
     rows[#rows + 1] = { left = ("Max hit %d, armor %d%%"):format(self:MaxHit(), self:Defense() * 100) }
   elseif tab == "pack" then
-    rows[#rows + 1] = { left = ("Pack: %d / %d. Click to use."):format(self:PackUsed(), PACK_SIZE) }
+    rows[#rows + 1] = { left = ("Pack: %d / %d. Click to use, right-click for more."):format(self:PackUsed(), PACK_SIZE) }
     for _, k in ipairs(ITEM_ORDER) do
       local n = self:Count(k)
       if n > 0 then
         local it = ITEMS[k]
         rows[#rows + 1] = { left = it.name, right = "x" .. n, tip = ItemTip(k),
-          click = function() R:UseItem(k) end, color = it.slot and { 0.6, 0.8, 1 } or (it.heal and { 0.6, 1, 0.6 }) }
+          click = function() R:UseItem(k) end, options = function() return R:ItemOptions(k) end,
+          color = it.slot and { 0.6, 0.8, 1 } or (it.heal and { 0.6, 1, 0.6 }) }
       end
     end
   elseif tab == "gear" then
@@ -1187,7 +1393,7 @@ local function FillPanel(self)
       if c then r.left:SetTextColor(c[1], c[2], c[3]) else r.left:SetTextColor(1, 1, 1) end
       r.bar:SetMinMaxValues(0, 1)
       r.bar:SetValue(data.fill or 0)
-      r.tip, r.onClick = data.tip, data.click
+      r.tip, r.onClick, r.options = data.tip, data.click, data.options
       r:Show()
     elseif frame.rows[i] then
       frame.rows[i]:Hide()
@@ -1560,6 +1766,65 @@ function R:Refresh()
   FillPopup(self)
 end
 
+-- the right-click menu: "Choose Option", one line per option
+local menu
+function R:HideMenu() if menu then menu:Hide() end end
+function R:ShowMenu(opts, anchor)
+  if not frame or not opts or #opts == 0 then return end
+  if not menu then
+    menu = CreateFrame("Frame", "MooScapeMenu", frame, BACKDROP_TEMPLATE)
+    menu:SetFrameStrata("DIALOG")
+    menu:EnableMouse(true)
+    Box(menu, { 0.08, 0.06, 0.04, 0.97 }, { 0.6, 0.48, 0.25 })
+    menu.title = Text(menu, "GameFontNormalSmall", "TOPLEFT", 8, -6)
+    menu.title:SetText("Choose Option")
+    menu.buttons = {}
+    -- it closes when the pointer wanders off, like a proper game menu
+    menu:SetScript("OnUpdate", ns.Safe("MooScape menu", function(self, elapsed)
+      self.idle = (self.idle or 0) + elapsed
+      if self.idle > 0.4 and self.IsMouseOver and not self:IsMouseOver(10, -10, -10, 10) then self:Hide() end
+    end))
+  end
+  menu.opts = opts
+  local width = 140
+  for _, o in ipairs(opts) do width = math.max(width, math.min(320, #o.label * 6 + 24)) end
+  for i, o in ipairs(opts) do
+    local b = menu.buttons[i]
+    if not b then
+      b = CreateFrame("Button", nil, menu)
+      b:SetHeight(16)
+      b.text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+      b.text:SetPoint("LEFT", 6, 0)
+      b.text:SetJustifyH("LEFT")
+      b:SetHighlightTexture(WHITE, "ADD")
+      local hl = b:GetHighlightTexture()
+      if hl then hl:SetVertexColor(1, 0.85, 0.3, 0.25) end
+      b:SetScript("OnClick", function() R:ChooseOption(i) end)
+      menu.buttons[i] = b
+    end
+    b:ClearAllPoints()
+    b:SetPoint("TOPLEFT", 4, -20 - (i - 1) * 16)
+    b:SetWidth(width - 8)
+    b.text:SetText(o.label)
+    if o.label == "Cancel" then b.text:SetTextColor(0.7, 0.7, 0.7) else b.text:SetTextColor(1, 1, 1) end
+    b:Show()
+  end
+  for i = #opts + 1, #menu.buttons do menu.buttons[i]:Hide() end
+  menu:SetSize(width, 26 + #opts * 16)
+  menu:ClearAllPoints()
+  menu:SetPoint("TOPLEFT", anchor or frame, "CENTER", 0, 0)
+  menu.idle = 0
+  menu:Show()
+end
+-- pick option i of the open menu (also what clicking its line does)
+function R:ChooseOption(i)
+  if not menu or not menu.opts then return end
+  local o = menu.opts[i]
+  menu:Hide()
+  if o and o.run then o.run() end
+  self:Refresh()
+end
+
 local function CreateWindow()
   local mapW, mapH = W * TS, H * TS
   frame = CreateFrame("Frame", "MooHelperPasture", UIParent, BACKDROP_TEMPLATE)
@@ -1638,8 +1903,13 @@ local function CreateWindow()
       b:SetHighlightTexture(WHITE, "ADD")
       local hl = b:GetHighlightTexture()
       if hl then hl:SetVertexColor(1, 1, 0.7, 0.18) end
-      b:SetScript("OnClick", function() R:Click(x, y) R:Refresh() end)
+      b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+      b:SetScript("OnClick", function(self, button)
+        if button == "RightButton" then R:ShowMenu(R:Options(x, y), self) else R:HideMenu() R:Click(x, y) end
+        R:Refresh()
+      end)
       b:SetScript("OnEnter", function(self)
+        if frame.hover then frame.hover:SetText(R:HoverText(x, y)) end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         local m = R:MobAt(x, y)
         local npc = R:NPCAt(x, y)
@@ -1650,11 +1920,16 @@ local function CreateWindow()
         GameTooltip:SetText(line)
         GameTooltip:Show()
       end)
-      b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      b:SetScript("OnLeave", function() GameTooltip:Hide() if frame.hover then frame.hover:SetText("") end end)
       frame.tiles[y][x] = b
     end
   end
   frame.mapAnchor = frame.tiles[1][1]
+  -- what a left-click does, in the corner above the map
+  frame.hover = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  frame.hover:SetPoint("BOTTOMLEFT", frame.mapAnchor, "TOPLEFT", 2, 4)
+  frame.hover:SetJustifyH("LEFT")
+  frame.hover:SetText("")
 
   -- above the tiles: light, fog, vignette, then the units (a layer that takes no clicks)
   local fx = CreateFrame("Frame", nil, frame)
@@ -1796,22 +2071,36 @@ local function CreateWindow()
   pop:Hide()
   frame.popup = pop
 
-  frame:SetScript("OnUpdate", function(_, elapsed)
+  frame:SetScript("OnUpdate", ns.Safe("MooScape", function(_, elapsed)
     local dt = math.min(elapsed, 0.5)
     R:Update(dt)
     if R.dirty then R:Refresh() end
     R:Animate(dt)
-  end)
-  frame:SetScript("OnShow", function() R.frameShown = true R:Refresh() R:Broadcast(true) end)
+  end))
+  frame:SetScript("OnShow", ns.Safe("MooScape", function() R.frameShown = true R:Refresh() R:Broadcast(true) end))
   frame:SetScript("OnHide", function() R.frameShown = false end)
   frame:Hide()
 end
 
+local function Paused() return (ns.SafeFailures and ns.SafeFailures()["MooScape"] or 0) >= 3 end
+
 function R:Toggle(show)
-  if not self.ready then self:Init() end
-  if not frame then CreateWindow() end
-  if show == nil then show = not frame:IsShown() end
-  if show then
+  -- closing always works
+  if frame and frame:IsShown() and show ~= true then
+    frame:Hide()
+    self.frameShown = false
+    return
+  end
+  if show == false then return end
+  -- after repeated errors MooScape was paused: say so instead of opening a frozen window
+  if Paused() then
+    ns:Print("MooScape hit an error and was paused to keep your screen clean. /reload to try again; /moo errors shows what happened.")
+    return
+  end
+  -- opening runs MooScape's own drawing code, so it gets the same protection as the per-frame code
+  ns.Safe("MooScape", function()
+    if not self.ready then self:Init() end
+    if not frame then CreateWindow() end
     frame:Show()
     self.frameShown = true
     ns:Bump("rpgOpened")
@@ -1820,7 +2109,8 @@ function R:Toggle(show)
     end
     self:Refresh()
     self:Animate(0)
-  else
+  end)()
+  if Paused() and frame then
     frame:Hide()
     self.frameShown = false
   end
@@ -1898,13 +2188,13 @@ function R:ShowBanner()
   x:SetPoint("TOPRIGHT", -6, -6)
   x:SetScript("OnClick", Done)
   local t = 0
-  banner:SetScript("OnUpdate", function(_, elapsed)
+  banner:SetScript("OnUpdate", ns.Safe("MooScape banner", function(_, elapsed)
     t = t + elapsed
     local pulse = (math.sin(t * 3) + 1) / 2
     glow:SetAlpha(0.15 + pulse * 0.3)
     ring:SetVertexColor(1, 0.7 + pulse * 0.3, 0.2 + pulse * 0.3)
     headline:SetTextColor(1, 0.78 + pulse * 0.2, 0.15 + pulse * 0.3)
-  end)
+  end))
   banner:Show()
   return banner
 end
@@ -1912,8 +2202,8 @@ end
 ns:On("PLAYER_LOGIN", function()
   R:Init()
   if not ns.db.mooscapeBannerSeen then
-    C_Timer.After(6, function()
+    C_Timer.After(6, ns.Safe("Pasture.lua timer line 1915", function()
       if not ns.db.mooscapeBannerSeen and not InCombatLockdown() then R:ShowBanner() end
-    end)
+    end))
   end
 end)

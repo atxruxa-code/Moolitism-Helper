@@ -57,7 +57,7 @@ local function CreateButton()
   end)
   button:SetScript("OnDragStart", function(self) self:StartMoving() end)
   button:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() SaveButtonPosition() end)
-  button:SetScript("OnUpdate", function(self, elapsed)
+  button:SetScript("OnUpdate", ns.Safe("Visuals.lua OnUpdate line 60", function(self, elapsed)
     if not self.bounce then return end
     self.bounce = self.bounce + elapsed
     local t = self.bounce / 0.25
@@ -67,7 +67,7 @@ local function CreateButton()
     else
       self:SetScale(ns.db.buttonScale * (1 + 0.25 * math.sin(t * math.pi)))
     end
-  end)
+  end))
   button:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine("MOO")
@@ -109,7 +109,7 @@ local function CreateCombo()
   comboFrame.text = comboFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
   comboFrame.text:SetPoint("CENTER")
   comboFrame:Hide()
-  comboFrame:SetScript("OnUpdate", function(self, elapsed)
+  comboFrame:SetScript("OnUpdate", ns.Safe("Visuals.lua OnUpdate line 112", function(self, elapsed)
     self.t = self.t + elapsed
     local pop = math.min(self.t / 0.12, 1)
     self:SetScale(self.base * (1.6 - 0.6 * pop))
@@ -117,7 +117,7 @@ local function CreateCombo()
       local a = 1 - (self.t - 1.2) / 0.5
       if a <= 0 then self:Hide() else self:SetAlpha(a) end
     end
-  end)
+  end))
 end
 
 function ns:ShowCombo(n)
@@ -149,7 +149,7 @@ local function CreateRain()
   rainFrame:SetAllPoints(UIParent)
   rainFrame:SetFrameStrata("HIGH")
   rainFrame:EnableMouse(false)
-  rainFrame:SetScript("OnUpdate", function(_, elapsed)
+  rainFrame:SetScript("OnUpdate", ns.Safe("Visuals.lua OnUpdate line 152", function(_, elapsed)
     local w, h = UIParent:GetWidth(), UIParent:GetHeight()
     for i = #drops, 1, -1 do
       local d = drops[i]
@@ -166,7 +166,7 @@ local function CreateRain()
       end
     end
     if #drops == 0 then rainFrame:Hide() end
-  end)
+  end))
   rainFrame:Hide()
 end
 
@@ -225,11 +225,11 @@ local function CreateVision()
     vision.spots[i] = spot
   end
   vision:Hide()
-  vision:SetScript("OnUpdate", function(self, elapsed)
+  vision:SetScript("OnUpdate", ns.Safe("Visuals.lua OnUpdate line 228", function(self, elapsed)
     self.t = self.t + elapsed
     local a = 1 - self.t / 1.4
     if a <= 0 then self:Hide() else self:SetAlpha(a) end
-  end)
+  end))
 end
 
 function ns:MooVision()
@@ -302,13 +302,13 @@ local function CreateToast()
     if ns.OpenBarn and self.openTab then ns:OpenBarn(self.openTab) end
     ShowNextToast()
   end)
-  toast:SetScript("OnUpdate", function(self, elapsed)
+  toast:SetScript("OnUpdate", ns.Safe("Visuals.lua OnUpdate line 305", function(self, elapsed)
     self.t = self.t + elapsed
     if self.t > 3.5 then
       local a = 1 - (self.t - 3.5) / 0.6
       if a <= 0 then self:Hide() ShowNextToast() else self:SetAlpha(a) end
     end
-  end)
+  end))
 end
 
 function ns:Toast(title, text, icon, points, openTab)

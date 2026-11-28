@@ -1298,7 +1298,7 @@ function ns:RefreshBarn()
   local page = pages[current]
   if page.frame and page.refresh then
     local ok, err = pcall(page.refresh, page.frame)
-    if not ok then table.insert(ns.errors, "barn " .. current .. ": " .. tostring(err)) end
+    if not ok then ns:LogError("barn " .. current .. ": " .. tostring(err)) end
   end
 end
 
@@ -1381,12 +1381,12 @@ function ns:CreateBarn()
 
   barn:SetScript("OnShow", function() ShowPage(current or "moo") end)
   local acc = 0
-  barn:SetScript("OnUpdate", function(_, elapsed)
+  barn:SetScript("OnUpdate", ns.Safe("Barn.lua OnUpdate line 1384", function(_, elapsed)
     acc = acc + elapsed
     if acc < 1 then return end
     acc = 0
     if current and pages[current].live then ns:RefreshBarn() end
-  end)
+  end))
 
   -- the achievement engine refreshes the browser when something is earned
   if ns.Ach then

@@ -263,7 +263,7 @@ for event, source in pairs(CHAT_SOURCES) do
         if (l.scope or ns.gameScope) == source then
           if GAME_FIELDS[key] then ns.gameScope = l.scope games[#games + 1] = GAME_FIELDS[key] end
           local ok, err = pcall(l.fn, msg, name, isSelf, source)
-          if not ok then table.insert(ns.errors, "listener " .. key .. ": " .. tostring(err)) end
+          if not ok then ns:LogError("listener " .. key .. ": " .. tostring(err)) end
         end
       end
       if source == "guild" and not ns.db.triggers.guildGames then

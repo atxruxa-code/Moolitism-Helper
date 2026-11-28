@@ -123,7 +123,7 @@ function ns:OnAchievement(a)
   self:AddMilk(5 * (a.points or 0) + 10)
   for _, fn in ipairs(ns.achListeners) do
     local ok, err = pcall(fn, a)
-    if not ok then table.insert(ns.errors, "achievement listener: " .. tostring(err)) end
+    if not ok then ns:LogError("achievement listener: " .. tostring(err)) end
   end
 end
 
@@ -255,7 +255,7 @@ ns:On("PLAYER_LOGIN", function()
     local earned = math.floor(ns:MilkPerSecond() * away / 2)
     if earned > 0 then
       ns:AddMilk(earned)
-      C_Timer.After(5, function() ns:Print(("Your farm made %s milk while you were away."):format(ns.FormatNumber(earned))) end)
+      C_Timer.After(5, ns.Safe("Farm.lua timer line 258", function() ns:Print(("Your farm made %s milk while you were away."):format(ns.FormatNumber(earned))) end))
     end
   end
 end)

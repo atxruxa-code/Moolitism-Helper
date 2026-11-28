@@ -245,7 +245,7 @@ On("PLAYER_ENTERING_WORLD", function(_, isReloadingUi)
   if ns.ready or ns.starting then return end
   ns.starting = true
   -- Give the client a moment so skills / reputation / quest data are populated.
-  C_Timer.After(3, function()
+  C_Timer.After(3, MH.Safe("AchTracking.lua timer line 248", function()
     ScanAll()
     ns.silent = ns.isFirstRun -- don't spam toasts for retroactive awards on first install
     ns.ready = true
@@ -255,7 +255,7 @@ On("PLAYER_ENTERING_WORLD", function(_, isReloadingUi)
         :format(ns.silentCount or 0, ns.Color("ffff00", "/moo ach")))
     end
     ns.silent = false
-  end)
+  end))
 end)
 
 ---------------------------------------------------------------------------
@@ -326,9 +326,9 @@ On("UNIT_SPELLCAST_SUCCEEDED", function(unit, _, spellID)
 end)
 
 On("PLAYER_CONTROL_LOST", function()
-  C_Timer.After(1.5, function()
+  C_Timer.After(1.5, MH.Safe("AchTracking.lua timer line 329", function()
     if UnitOnTaxi("player") then ns:Inc("flights") end
-  end)
+  end))
 end)
 
 -- Boss kills. ENCOUNTER_END(encounterID, encounterName, difficultyID, groupSize, success)

@@ -281,7 +281,7 @@ ns:On("PLAYER_LOGIN", function()
   if JumpOrAscendStart and hooksecurefunc then hooksecurefunc("JumpOrAscendStart", OnJump) end
   if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster)
   elseif GuildRoster then pcall(GuildRoster) end
-  C_Timer.After(30, function() ns:Forecast() end)
+  C_Timer.After(30, ns.Safe("Annoy.lua timer line 284", function() ns:Forecast() end))
 end)
 
 table.insert(ns.tickFns, ClockTick)

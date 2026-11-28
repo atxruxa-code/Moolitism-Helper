@@ -12,6 +12,53 @@ local _, ns = ...
 ns.version = "1.0.0"
 ns.errors = {}
 
+-- Errors are recorded instead of popping up: in ns.errors for this session, and the last 30 in
+-- the saved data (MooHelperDB.errorLog), so a bug report can include them (/moo errors). A part of
+-- the addon that keeps failing is switched off until /reload instead of erroring every frame.
+local loggedWhere = {}
+function ns:LogError(text, where)
+  text = tostring(text)
+  table.insert(ns.errors, text)
+  while #ns.errors > 200 do table.remove(ns.errors, 1) end
+  local db = ns.db
+  if db then
+    db.errorLog = db.errorLog or {}
+    local log = db.errorLog
+    if not ns.VERSION and C_AddOns and C_AddOns.GetAddOnMetadata then
+      local ok, v = pcall(C_AddOns.GetAddOnMetadata, "Moolitism-Helper", "Version")
+      ns.VERSION = ok and v or nil
+    end
+    log[#log + 1] = { t = time and time() or 0, v = ns.VERSION or "?", e = text:sub(1, 900) }
+    while #log > 30 do table.remove(log, 1) end
+  end
+  where = where or text:match("^([^:]+)")
+  if where and not loggedWhere[where] and ns.Print and DEFAULT_CHAT_FRAME then
+    loggedWhere[where] = true
+    ns:Print(("hit an error (%s). It's been saved for a bug report: /moo errors."):format(where))
+  end
+end
+
+local SAFE_LIMIT = 3
+local safeFails = {}
+local unpack = unpack or table.unpack
+-- wrap a per-frame script or timer callback: errors are recorded (with where they came from)
+-- and after 3 failures that piece stops running until /reload
+function ns.Safe(where, fn)
+  return function(...)
+    if (safeFails[where] or 0) >= SAFE_LIMIT then return end
+    local n, args = select("#", ...), { ... }
+    local ok, err = xpcall(function() return fn(unpack(args, 1, n)) end, function(e)
+      return tostring(e) .. ((debugstack and ("\n" .. tostring(debugstack(2, 6, 0)))) or "")
+    end)
+    if not ok then
+      safeFails[where] = (safeFails[where] or 0) + 1
+      local off = safeFails[where] >= SAFE_LIMIT
+      ns:LogError(where .. ": " .. tostring(err) .. (off and " [switched off until /reload]" or ""), where)
+    end
+  end
+end
+function ns.SafeFailures() return safeFails end
+
 local IsSecret = issecretvalue or function() return false end
 function ns.Usable(v) return v ~= nil and not IsSecret(v) end
 function ns.Now() return GetTime() end
@@ -130,7 +177,7 @@ function ns:Bump(key, n)
   c[key] = (c[key] or 0) + (n or 1)
   for _, fn in ipairs(ns.bumpListeners) do
     local ok, err = pcall(fn, key, n or 1)
-    if not ok then table.insert(ns.errors, "bump listener: " .. tostring(err)) end
+    if not ok then ns:LogError("bump listener: " .. tostring(err)) end
   end
   self:StatChanged()
 end
@@ -160,7 +207,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
   for _, fn in ipairs(list) do
     local ok, err = pcall(fn, ...)
     if not ok then
-      table.insert(ns.errors, event .. ": " .. tostring(err))
+      ns:LogError(event .. ": " .. tostring(err))
       if ns.debug then ns:Print("error in " .. event .. ": " .. tostring(err)) end
     end
   end
@@ -316,7 +363,7 @@ local function Count(key)
   s.byChannel[key] = (s.byChannel[key] or 0) + 1
   for _, fn in ipairs(ns.mooListeners) do
     local ok, err = pcall(fn, key)
-    if not ok then table.insert(ns.errors, "moo listener: " .. tostring(err)) end
+    if not ok then ns:LogError("moo listener: " .. tostring(err)) end
   end
   if ns.CheckRank then ns:CheckRank() end
   ns:StatChanged()
@@ -338,7 +385,7 @@ end
 function ns:Signal(name, ...)
   for _, fn in ipairs(self.signalListeners[name] or {}) do
     local ok, err = pcall(fn, ...)
-    if not ok then table.insert(ns.errors, "signal " .. name .. ": " .. tostring(err)) end
+    if not ok then ns:LogError("signal " .. name .. ": " .. tostring(err)) end
   end
 end
 
@@ -606,5 +653,5 @@ flusher:SetScript("OnUpdate", function(_, elapsed)
   if acc < 0.5 or not ns.db then return end
   acc = 0
   local ok, err = pcall(ns.FlushQueue, ns)
-  if not ok then table.insert(ns.errors, "flush: " .. tostring(err)) end
+  if not ok then ns:LogError("flush: " .. tostring(err)) end
 end)

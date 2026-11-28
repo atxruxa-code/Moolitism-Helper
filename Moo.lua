@@ -391,7 +391,7 @@ local function Mourn(name)
   ns:Signal("friendDeath", name)
   if not mourning then
     mourning = {}
-    C_Timer.After(MOURN_WAIT, MournNow)
+    C_Timer.After(MOURN_WAIT, ns.Safe("Moo.lua mourning", MournNow))
   end
   for _, n in ipairs(mourning) do if n == name then return end end
   mourning[#mourning + 1] = name
@@ -583,15 +583,15 @@ ns:On("PLAYER_LOGIN", function()
   if ns.CreateVisuals then ns:CreateVisuals() end
   local ticker = CreateFrame("Frame")
   local acc = 0
-  ticker:SetScript("OnUpdate", function(_, elapsed)
+  ticker:SetScript("OnUpdate", ns.Safe("Moo.lua OnUpdate line 575", function(_, elapsed)
     acc = acc + elapsed
     if acc < 1 then return end
     acc = 0
     for _, fn in ipairs(ns.tickFns) do
       local ok, err = pcall(fn)
-      if not ok then table.insert(ns.errors, "tick: " .. tostring(err)) end
+      if not ok then ns:LogError("tick: " .. tostring(err)) end
     end
-  end)
+  end))
   ns:Print("Loaded. Click the cow, or type /moo barn for the Barn. /moo help for commands, /moo off to stop the automatic moos.")
 end)
 
@@ -898,6 +898,16 @@ SlashCmdList.MOOHELPER = function(msg)
   elseif cmd == "on" then
     ns:SetPanic(false)
     ns:Print("Automatic moos " .. OnOff(true) .. ". You were warned.")
+  elseif cmd == "errors" or cmd == "error" or cmd == "bugs" then
+    local log = ns.db.errorLog or {}
+    if rest:lower() == "clear" then ns.db.errorLog = {} ns:Print("Error log cleared.") return end
+    if #log == 0 then ns:Print("No errors recorded. Moo.") return end
+    ns:Print(("%d error(s) saved (newest last). /moo errors clear to empty the list."):format(#log))
+    for i = math.max(1, #log - 4), #log do
+      local e = log[i]
+      ns:Print(("  [%s v%s] %s"):format(date("%m-%d %H:%M", e.t or 0), tostring(e.v), ns.Clean(((e.e or "?"):match("^[^\r\n]*")))))
+    end
+
   elseif cmd == "heard" then
     -- what the addon did with the last lines other people typed (and why it ignored any)
     local lines = ns:HeardLines(tonumber(rest) or 10)

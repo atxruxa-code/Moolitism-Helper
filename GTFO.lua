@@ -53,12 +53,12 @@ local function Flash(text)
     flash.text:SetPoint("CENTER", 0, 120)
     flash.text:SetTextColor(1, 0.25, 0.15)
     flash:EnableMouse(false)
-    flash:SetScript("OnUpdate", function(self, elapsed)
+    flash:SetScript("OnUpdate", ns.Safe("GTFO.lua OnUpdate line 56", function(self, elapsed)
       self.left = (self.left or 0) - elapsed
       local a = math.max(0, self.left / 1.2)
       self:SetAlpha(a)
       if self.left <= 0 then self:Hide() end
-    end)
+    end))
   end
   flash.text:SetText(text)
   flash.left = 1.2

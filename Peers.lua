@@ -42,7 +42,7 @@ local function SendAddon(msg, channel, target)
 end
 
 local function Version()
-  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.6.2"
+  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.7.0"
 end
 
 local function CowFields()
@@ -109,7 +109,7 @@ end
 -- bug is logged in ns.errors instead of thrown at the player.
 local function Safe(label, fn, ...)
   local ok, err = pcall(fn, ...)
-  if not ok then table.insert(ns.errors, label .. ": " .. tostring(err)) end
+  if not ok then ns:LogError(label .. ": " .. tostring(err), label) end
 end
 
 -- Every reader of party/guild chat and whispers goes through this. fn runs only for lines
@@ -120,9 +120,9 @@ function ns:GateChat(sender, text, fn)
   if self:IsPeer(name) then
     if self:LooksLikeAddonLine(text) then return end
     -- the mark may arrive a moment after the chat line: wait for it before answering
-    C_Timer.After(WAIT_FOR_MARK, function()
+    C_Timer.After(WAIT_FOR_MARK, ns.Safe("chat reply", function()
       if not ns:IsForeignAddonLine(text, sender) then Safe("chat", fn) end
-    end)
+    end))
     return
   end
   fn()
@@ -198,10 +198,10 @@ function ns:RunAsHost(scope, id, asker, fn)
   local rank = self:HostRank(scope, asker)
   if rank == 0 then Host() return "now" end
   local asked = ns.Now()
-  C_Timer.After(rank * HOST_GAP, function()
+  C_Timer.After(rank * HOST_GAP, ns.Safe("Peers.lua timer line 194", function()
     if (claims[key] or -1000) >= asked - 1 then return end
     Safe("host " .. key, Host)
-  end)
+  end))
   return "later"
 end
 
@@ -234,14 +234,14 @@ function ns:RunAsHostMany(scope, ids, fn)
   local rank = self:HostRank(scope)
   if rank == 0 then Host(ids) return end
   local asked = ns.Now()
-  C_Timer.After(rank * HOST_GAP, function()
+  C_Timer.After(rank * HOST_GAP, ns.Safe("Peers.lua timer line 229", function()
     local left = {}
     for _, id in ipairs(ids) do
       local key = scope .. "~" .. tostring(id):gsub(SEP, "")
       if (claims[key] or -1000) < asked - 1 then left[#left + 1] = id end
     end
     Safe("host " .. scope, Host, left)
-  end)
+  end))
 end
 
 ---------------------------------------------------------------------------
@@ -379,12 +379,12 @@ function ns:ChallengeDuel(name)
   local cow, xp, stage, happy = CowFields()
   pendingDuels[id] = { target = short, at = ns.Now(), mine = Stats({ cow, xp, stage, happy }, 1) }
   SendAddon(Join("DUEL", id, cow, xp, stage, happy), "WHISPER", peer.full or short)
-  C_Timer.After(20, function()
+  C_Timer.After(20, ns.Safe("Peers.lua timer line 374", function()
     if pendingDuels[id] then
       pendingDuels[id] = nil
       ns:Print(("%s's cow didn't answer the challenge."):format(short))
     end
-  end)
+  end))
   return true, ("Challenge sent to %s's cow. Moo."):format(short)
 end
 
@@ -492,7 +492,7 @@ ns:On("PLAYER_LOGIN", function()
   elseif RegisterAddonMessagePrefix then
     pcall(RegisterAddonMessagePrefix, PREFIX)
   end
-  C_Timer.After(10, function() ns:SayHello(true) end)
+  C_Timer.After(10, ns.Safe("Peers.lua timer line 485", function() ns:SayHello(true) end))
 end)
 ns:On("CHAT_MSG_ADDON", OnAddonMessage)
 ns:On("GROUP_ROSTER_UPDATE", function() ns:SayHello() end)

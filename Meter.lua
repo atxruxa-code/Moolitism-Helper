@@ -111,7 +111,7 @@ end
 local function PollAfterFight(tries)
   local gotAny, secret = SnapshotAll()
   if secret and tries < POLL_TRIES then
-    C_Timer.After(POLL_EVERY, function() PollAfterFight(tries + 1) end)
+    C_Timer.After(POLL_EVERY, ns.Safe("Meter.lua timer line 114", function() PollAfterFight(tries + 1) end))
     return
   end
   ns.meterPending = false
@@ -184,7 +184,7 @@ ns:On("PLAYER_REGEN_ENABLED", function()
   ns.inFight = false
   if not ns.meterPending then
     ns.meterPending = true
-    C_Timer.After(POLL_EVERY, function() PollAfterFight(1) end)
+    C_Timer.After(POLL_EVERY, ns.Safe("Meter.lua timer line 187", function() PollAfterFight(1) end))
   end
 end)
 
@@ -388,10 +388,10 @@ local function CreateMeter()
   meter.note:SetJustifyH("LEFT")
   meter:SetScript("OnShow", function() ns:RefreshMeter() end)
   local acc = 0
-  meter:SetScript("OnUpdate", function(_, elapsed)
+  meter:SetScript("OnUpdate", ns.Safe("Meter.lua OnUpdate line 391", function(_, elapsed)
     acc = acc + elapsed
     if acc >= 1 then acc = 0 ns:RefreshMeter() end
-  end)
+  end))
   meter:Hide()
   if ns.db.meterShown then meter:Show() end
 end

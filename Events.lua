@@ -87,7 +87,7 @@ local function CreateGolden()
   golden.glow:SetColorTexture(1, 0.8, 0.1, 0.35)
   golden:Hide()
   golden:SetScript("OnClick", function() ns:CatchGoldenMoo() end)
-  golden:SetScript("OnUpdate", function(self, elapsed)
+  golden:SetScript("OnUpdate", ns.Safe("Events.lua OnUpdate line 90", function(self, elapsed)
     self.t = self.t + elapsed
     if self.t > 9 then self:Hide() return end
     local w, h = UIParent:GetWidth(), UIParent:GetHeight()
@@ -96,7 +96,7 @@ local function CreateGolden()
     self:ClearAllPoints()
     self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
     if x < -60 or x > w + 60 or y < 0 or y > h then self:Hide() end
-  end)
+  end))
 end
 
 function ns:SpawnGoldenMoo()

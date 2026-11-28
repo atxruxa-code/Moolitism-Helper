@@ -86,7 +86,7 @@ for _, event in ipairs({ "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RA
     "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER", "CHAT_MSG_GUILD" }) do
   ns:On(event, function(msg, sender)
     if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" then return end
-    if ns:IsOwnOutput(msg) or not ns.SaysMoo(msg) then return end
+    if ns:IsOwnOutput(msg, sender) or not ns.SaysMoo(msg) then return end
     local name = ns.ShortName(sender)
     if name == UnitName("player") then return end
     ns:GateChat(sender, msg, function()

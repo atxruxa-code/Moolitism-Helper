@@ -350,7 +350,10 @@ function ns:SendNow(key, text)
 end
 
 ns.recentOutputs = {}
-function ns:IsOwnOutput(text)
+-- A line is our own echo only if it's text we sent AND it came from us: a friend typing the
+-- same "moo" our addon just posted is still a friend talking (GitHub issues #5 and #9).
+function ns:IsOwnOutput(text, sender)
+  if sender ~= nil and ns.Usable(sender) and ns.ShortName(sender) ~= UnitName("player") then return false end
   local t = ns.recentOutputs[text]
   return t ~= nil and ns.Now() - t < 120
 end

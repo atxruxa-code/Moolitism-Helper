@@ -160,7 +160,7 @@ local SAYS = { { "says_lol", { "lol", "lmao", "rofl" } }, { "says_sorry", { "sor
 for _, event in ipairs({ "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID", "CHAT_MSG_RAID_LEADER",
     "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER" }) do
   ns:On(event, function(msg, sender)
-    if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" or ns:IsOwnOutput(msg) then return end
+    if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" or ns:IsOwnOutput(msg, sender) then return end
     ns:GateChat(sender, msg, function()
       if ns.SaysMoo and ns.SaysMoo(msg) then Mark("says_moo") end
       local norm = ns.Normalize(msg)

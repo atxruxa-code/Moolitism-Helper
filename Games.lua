@@ -132,13 +132,22 @@ local function Reply(where, text)
   return ns:Queue(where, text, GAME)
 end
 
+-- Is this unit logged off? (Offline party members still "exist" as units.)
+local function Offline(unit)
+  if not UnitIsConnected then return false end
+  local ok, connected = pcall(UnitIsConnected, unit)
+  return ok and Usable(connected) and connected == false
+end
+
+-- Group members who are online: games, interviews and callouts only ever pick people who can
+-- answer (GitHub issue #8).
 local function GroupMembers()
   local names = {}
   local prefix, count = "party", 4
   if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() or 0 end
   for i = 1, count do
     local unit = prefix .. i
-    if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+    if UnitExists(unit) and not UnitIsUnit(unit, "player") and not Offline(unit) then
       local name = UnitName(unit)
       if Usable(name) and name then names[#names + 1] = name end
     end
@@ -146,6 +155,21 @@ local function GroupMembers()
   return names
 end
 ns.GroupMembers = GroupMembers
+
+-- names of group members who are logged off right now
+function ns:OfflineMembers()
+  local out = {}
+  local prefix, count = "party", 4
+  if IsInRaid() then prefix, count = "raid", GetNumGroupMembers() or 0 end
+  for i = 1, count do
+    local unit = prefix .. i
+    if UnitExists(unit) and Offline(unit) then
+      local name = UnitName(unit)
+      if Usable(name) and name then out[ns.ShortName(name)] = true end
+    end
+  end
+  return out
+end
 
 -- Who's playing: the group, or guildmates who spoke in guild chat in the last 15 minutes
 function ns:GameMembers()
@@ -195,7 +219,7 @@ end
 for event, source in pairs(CHAT_SOURCES) do
   ns:On(event, function(msg, sender)
     if not Usable(msg) or not Usable(sender) or type(msg) ~= "string" then return end
-    if ns:IsOwnOutput(msg) then return end -- our own addon lines echoing back
+    if ns:IsOwnOutput(msg, sender) then return end -- our own addon lines echoing back
     local name = ns.ShortName(sender)
     local isSelf = name == UnitName("player")
     -- lines another copy of the addon posted are never answered or counted (no moo loops)
@@ -652,8 +676,22 @@ ns.INTERVIEWS = {
 }
 
 local nextInterview, nextMooCheck
+-- Someone logged off while we were waiting on their answer: forget the question
+-- quietly. No "ignoring the herd" for people who aren't there (GitHub issue #8).
+function ns:DropAbsentQuestions()
+  -- (leaving the group already clears group questions; a guild game's question to someone
+  -- outside the group is left alone)
+  local offline = self:OfflineMembers()
+  for key in pairs(pending) do
+    if key:sub(1, 2) ~= "W:" and offline[key] then pending[key] = nil end
+  end
+end
+ns:On("UNIT_CONNECTION", function() ns:DropAbsentQuestions() end)
+ns:On("GROUP_ROSTER_UPDATE", function() ns:DropAbsentQuestions() end)
+
 local function InterviewTick()
   local now = ns.Now()
+  ns:DropAbsentQuestions()
   -- answers that never came
   for key, p in pairs(pending) do
     if now > p.expires then

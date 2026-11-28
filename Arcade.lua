@@ -42,6 +42,8 @@ function ns:StartQuickDraw(starter)
   self:AddGroupListener("draw", function(msg, name, isSelf)
     local d = ns.draw
     if not d or ns.CountMoos(msg) == 0 then return end
+    -- the DRAW line may have gone out since the last tick: a moo right after it counts
+    ns.DrawCheckSent(d)
     if d.phase == "wait" then
       if not d.out[name] then
         d.out[name] = true
@@ -59,19 +61,33 @@ function ns:StartQuickDraw(starter)
   return true
 end
 
+-- The draw only counts from the moment THIS game's DRAW line actually went out. (The same
+-- text from an earlier game is remembered for 2 minutes; mistaking that for this game's line
+-- ended the game as "Nobody drew" a second after DRAW. GitHub issue #9.)
+function ns.DrawCheckSent(d)
+  if d.phase ~= "wait" or not d.queuedAt then return end
+  local sent = ns.recentOutputs[DRAW_LINE]
+  if sent and sent >= d.queuedAt then
+    d.phase = "draw"
+    d.drawnAt = sent
+  end
+end
+
 local function DrawTick()
   ns:UseGameScope("draw")
   local d = ns.draw
   if not d then return end
   local now = ns.Now()
   if d.phase == "wait" and now >= d.drawAt and not d.queued then
-    d.queued = true
+    d.queued, d.queuedAt = true, now
     Group(DRAW_LINE)
   end
-  -- the draw only counts from the moment the line actually went out
-  if d.phase == "wait" and d.queued and ns.recentOutputs[DRAW_LINE] then
-    d.phase = "draw"
-    d.drawnAt = ns.recentOutputs[DRAW_LINE]
+  ns.DrawCheckSent(d)
+  -- the line never went out (hard-muted since, or the queue dropped it): call it off
+  if d.phase == "wait" and d.queuedAt and now - d.queuedAt > 60 then
+    ns.draw = nil
+    ns:RemoveGroupListener("draw")
+    return
   end
   if d.phase == "draw" and now - d.drawnAt > 15 then
     ns.draw = nil

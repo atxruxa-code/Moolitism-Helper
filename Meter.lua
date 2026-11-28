@@ -146,7 +146,7 @@ for _, event in ipairs({ "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RA
     if n == 0 then return end
     local name = ns.ShortName(sender)
     if name == UnitName("player") then AddMoos(name, math.min(n, 10)) return end
-    if ns:IsOwnOutput(msg) then return end
+    if ns:IsOwnOutput(msg, sender) then return end
     ns:GateChat(sender, msg, function() AddMoos(name, math.min(n, 10)) end)
   end)
 end

@@ -438,7 +438,7 @@ for event, key in pairs(MOO_BACK_EVENTS) do
   ns:On(event, function(msg, sender)
     if not Trigger("mooBack") or not Usable(msg) or not Usable(sender) then return end
     if ns.ShortName(sender) == UnitName("player") or not ns.SaysMoo(msg) then return end
-    if ns:IsOwnOutput(msg) then return end
+    if ns:IsOwnOutput(msg, sender) then return end
     -- another copy of the addon mooing is not a person mooing: never moo back at it
     ns:GateChat(sender, msg, function() MooBack(sender, key) end)
   end)

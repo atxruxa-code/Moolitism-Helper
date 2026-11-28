@@ -1,4 +1,4 @@
-# Moolitism Helper 3.4
+# Moolitism Helper 3.4.2
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,20 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.4.2
+
+- Quick Draw: a moo right after DRAW wins again. Playing Quick Draw twice within two minutes used to end
+  the second game as "Nobody drew" the moment DRAW went out (issue #9).
+- Offline party members are no longer interviewed, picked for games or shamed for "ignoring the herd",
+  and a question waiting on someone who logs off is dropped quietly (issue #8).
+- A friend typing the same words the addon just said (say, "moo") is no longer mistaken for the addon's
+  own line.
+
+## What's new in 3.4.1
+
+- Games in different chats no longer block each other (issue #7): a guild game and a party game can run
+  at the same time, each answering only in its own chat.
 
 ## What's new in 3.4
 

@@ -81,6 +81,26 @@ function ns:InitDB()
   MooHelperDB = MooHelperDB or {}
   self.db = MooHelperDB
   Merge(self.db, DEFAULTS)
+  -- 3.5.1: numbered channels are keyed by their base name ("CH:Trade", not "CH:Trade - Orgrimmar").
+  -- Move old entries over; a mute anywhere wins (issue #10).
+  for _, field in ipairs({ "muted", "channels" }) do
+    local t = self.db[field]
+    local old = {} -- collected first: a table can't gain keys while it's being walked
+    for key in pairs(t) do
+      if type(key) == "string" and key:sub(1, 3) == "CH:" and "CH:" .. ns.ChannelBase(key:sub(4)) ~= key then
+        old[#old + 1] = key
+      end
+    end
+    for _, key in ipairs(old) do
+      local v, canon = t[key], "CH:" .. ns.ChannelBase(key:sub(4))
+      t[key] = nil
+      if field == "muted" then
+        if v == true or t[canon] == nil then t[canon] = v end
+      elseif t[canon] == nil then
+        t[canon] = v
+      end
+    end
+  end
   local s = self.db.stats
   s.total = s.total or 0
   s.byChannel = s.byChannel or {}
@@ -196,6 +216,15 @@ ns.FIXED_CHANNELS = {
 }
 
 -- Numbered channels you've joined (General, Trade, LookingForGroup...), as "CH:<name>".
+-- One key per numbered channel, whatever the game calls it: "Trade - Orgrimmar" (what
+-- GetChannelName says) and "Trade" (what GetChannelList says) are both "CH:Trade". Every path
+-- (the Barn, the Moo button, /moo 2, /moo mute 2, HARD MUTE checks) uses this, so a mute set in
+-- one place holds everywhere (GitHub issue #10).
+function ns.ChannelBase(name)
+  if type(name) ~= "string" then return name end
+  return name:match("^(.-) %- .+$") or name
+end
+
 function ns:JoinedChannels()
   local list = {}
   if not GetChannelList then return list end
@@ -203,10 +232,21 @@ function ns:JoinedChannels()
   for i = 1, #values do
     local id, name = values[i], values[i + 1]
     if type(id) == "number" and type(name) == "string" and ns.Usable(name) then
-      list[#list + 1] = { key = "CH:" .. name, label = name, protected = true, id = id }
+      local base = ns.ChannelBase(name)
+      list[#list + 1] = { key = "CH:" .. base, label = base, protected = true, id = id }
     end
   end
   return list
+end
+
+-- the channel number to send a "CH:" key to right now (0 if not joined)
+function ns:ChannelId(key)
+  local base = ns.ChannelBase(key:sub(4))
+  for _, c in ipairs(self:JoinedChannels()) do
+    if c.label == base then return c.id end
+  end
+  local id = GetChannelName and GetChannelName(base)
+  return type(id) == "number" and id or 0
 end
 
 function ns.IsProtected(key)
@@ -231,8 +271,7 @@ function ns:ChannelAvailable(key)
   end
   if key == "GUILD" or key == "OFFICER" then return IsInGuild() end
   if key:sub(1, 3) == "CH:" then
-    local id = GetChannelName(key:sub(4))
-    return type(id) == "number" and id > 0
+    return ns:ChannelId(key) > 0
   end
   return true -- SAY, YELL, EMOTE
 end
@@ -305,6 +344,7 @@ end
 function ns.MuteKey(key)
   if type(key) ~= "string" then return "?" end
   if key:sub(1, 2) == "W:" then return "WHISPER" end
+  if key:sub(1, 3) == "CH:" then return "CH:" .. ns.ChannelBase(key:sub(4)) end
   return key
 end
 
@@ -334,8 +374,8 @@ function ns:SendNow(key, text)
   -- tell other copies of the addon "this line is mine", so they never answer it (no moo loops)
   if self.MarkOutgoing then self:MarkOutgoing(key, text) end
   if key:sub(1, 3) == "CH:" then
-    local id = GetChannelName(key:sub(4))
-    if type(id) ~= "number" or id == 0 then return false end
+    local id = self:ChannelId(key)
+    if id == 0 then return false end
     if not RawSend(text, "CHANNEL", id) then return false end
   elseif key:sub(1, 2) == "W:" then
     if not RawSend(text, "WHISPER", key:sub(3)) then return false end
@@ -496,8 +536,12 @@ function ns:ResolveChannel(word)
   if key then return key end
   local num = tonumber(word)
   if num then
+    -- by number: the same key the Barn and the Moo button use (issue #10)
+    for _, c in ipairs(self:JoinedChannels()) do
+      if c.id == num then return c.key end
+    end
     local _, name = GetChannelName(num)
-    if ns.Usable(name) and type(name) == "string" and name ~= "" then return "CH:" .. name end
+    if ns.Usable(name) and type(name) == "string" and name ~= "" then return "CH:" .. ns.ChannelBase(name) end
     return nil
   end
   for _, c in ipairs(self:JoinedChannels()) do
@@ -509,7 +553,7 @@ function ns:ResolveChannel(word)
 end
 
 function ns:ChannelLabel(key)
-  if key:sub(1, 3) == "CH:" then return key:sub(4) end
+  if key:sub(1, 3) == "CH:" then return ns.ChannelBase(key:sub(4)) end
   if key:sub(1, 2) == "W:" or key == "WHISPER" then return "Whispers" end
   for _, c in ipairs(ns.FIXED_CHANNELS) do if c.key == key then return c.label end end
   return key

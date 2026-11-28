@@ -1,4 +1,4 @@
-# Moolitism Helper 3.5
+# Moolitism Helper 3.5.1
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,15 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.5.1
+
+- HARD MUTE can't be bypassed for numbered channels any more (issue #10). The game names a zone channel
+  "Trade" in one place and "Trade - Orgrimmar" in another, so a Trade mute set in the Barn didn't stop
+  `/moo 2`, `/moo launch 2` or `/moo longmoo 2`, and `/moo mute 2` didn't stop the Moo button. Every path now
+  uses the same key, and mutes saved under the long name are carried over.
+- Surprise Moo Checks always happen in your group, never in guild chat, even with "Play in: Guild chat"
+  (issue #11).
 
 ## What's new in 3.5
 

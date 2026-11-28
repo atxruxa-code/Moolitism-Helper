@@ -777,7 +777,10 @@ local function InterviewTick()
     if not nextMooCheck then nextMooCheck = now + period * (0.5 + random() * 0.5) end
     if now >= nextMooCheck then
       nextMooCheck = now + period * (0.7 + random() * 0.6)
+      -- a surprise moo check is a group thing: never in guild, whatever "Play in" says (issue #11)
+      ns.startScope = "group"
       ns:StartMooCheck()
+      ns.startScope = nil
     end
   end
 end

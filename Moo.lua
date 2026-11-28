@@ -511,11 +511,15 @@ local HEAR_EVENTS = {
   "CHAT_MSG_RAID_LEADER", "CHAT_MSG_GUILD", "CHAT_MSG_OFFICER", "CHAT_MSG_CHANNEL",
   "CHAT_MSG_WHISPER", "CHAT_MSG_INSTANCE_CHAT", "CHAT_MSG_INSTANCE_CHAT_LEADER",
 }
-local function HearMooFilter(_, _, msg, ...)
+local function HearMooFilter(_, _, msg, author, ...)
   if not ns.db or not ns.db.effects.hearMoo or not Usable(msg) or type(msg) ~= "string" then return false end
+  -- Moo Cipher lines keep their spelling (it IS the message), so they can still be decoded,
+  -- and Hear Moo is for everyone else's chat, not yours (issue #13)
+  if msg:find("MOO-CIPHER:", 1, true) then return false end
+  if Usable(author) and type(author) == "string" and ns.ShortName(author) == UnitName("player") then return false end
   local translate = ns.DialectTranslate and function(t) return ns.DialectTranslate(ns.db.hearDialect or "classic", t) end
     or ns.MooTranslate
-  return false, translate(msg), ...
+  return false, translate(msg), author, ...
 end
 local function InstallChatFilter()
   local add = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
@@ -879,8 +883,9 @@ SlashCmdList.MOOHELPER = function(msg)
 
   elseif cmd == "longmoo" then
     -- the longest moo chat allows (GitHub issue #4: "all moos aren't long enough")
-    local key = rest ~= "" and ns:ResolveChannel(rest) or ns:GroupChannel() or "SAY"
-    if not key then ns:Print("Where? /moo longmoo <party|say|guild|...>") return end
+    local key
+    if rest ~= "" then key = ns:ResolveChannel(rest) else key = ns:GroupChannel() or "SAY" end
+    if not key then ns:Print(("Unknown channel \"%s\". /moo longmoo <party|say|guild|2|...>"):format(ns.Clean(rest))) return end
     local line = "M" .. string.rep("O", 250) .. "!!!!"
     if ns:SendNow(key, line) then ns:Bump("longMoos") else ns:Print(ns:ChannelLabel(key) .. " is HARD MUTED (or not available).") end
 

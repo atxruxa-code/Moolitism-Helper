@@ -19,10 +19,25 @@ local TICK = 60 -- seconds per price move
 
 local function M() return ns.db.market end
 
+-- a whole number of shares, or nil for anything else ("nan", "inf", "1e999", junk): issue #12
+local function Shares(qty)
+  local n = tonumber(qty)
+  if not n or n ~= n or n == math.huge or n == -math.huge then return nil end
+  return math.floor(n)
+end
+local function Finite(x, default) return (type(x) == "number" and x == x and x ~= math.huge and x ~= -math.huge) and x or default end
+
 function ns:MarketInit()
   self.db.market = self.db.market or { prices = {}, history = {}, shares = {}, cost = {}, realized = 0, trades = 0 }
   local m = M()
+  -- repair saved data broken by issue #12 (NaN shares, costs or profit)
+  m.realized, m.trades = Finite(m.realized, 0), Finite(m.trades, 0)
+  local farm = ns.db.farm
+  if farm then farm.milk, farm.lifetime = Finite(farm.milk, 0), Finite(farm.lifetime, 0) end
   for _, s in ipairs(ns.STOCKS) do
+    m.prices[s.key] = Finite(m.prices[s.key], nil)
+    m.shares[s.key] = Finite(m.shares[s.key], nil)
+    m.cost[s.key] = Finite(m.cost[s.key], nil)
     m.prices[s.key] = m.prices[s.key] or s.base
     m.history[s.key] = m.history[s.key] or { m.prices[s.key] }
     m.shares[s.key] = m.shares[s.key] or 0
@@ -89,7 +104,8 @@ function ns:BuyStock(key, qty)
   if not s then return false, "No such stock. Try MILK, HAY or KODO." end
   local price = M().prices[key]
   if qty == "max" then qty = math.floor(self:Milk() / price) end
-  qty = math.floor(tonumber(qty) or 0)
+  qty = Shares(qty)
+  if not qty then return false, "How many? A whole number, or max." end
   if qty < 1 then return false, ("You can't afford a share of %s (%.2f milk)."):format(s.name, price) end
   local cost = math.ceil(price * qty)
   if not self:SpendMilk(cost) then return false, ("%d shares of %s cost %s milk."):format(qty, s.name, ns.FormatNumber(cost)) end
@@ -105,7 +121,8 @@ function ns:SellStock(key, qty)
   local m = M()
   local held = m.shares[key]
   if qty == "all" or qty == "max" then qty = held end
-  qty = math.floor(tonumber(qty) or 0)
+  qty = Shares(qty)
+  if not qty then return false, "How many? A whole number, or all." end
   if qty < 1 or held < 1 then return false, ("You don't own any %s."):format(s.name) end
   qty = math.min(qty, held)
   local proceeds = math.floor(m.prices[key] * qty)

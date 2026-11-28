@@ -72,6 +72,7 @@ ns.shameDiag = { result = "not run yet" }
 -- may start a new session each fight or keep adding to one; either way only what's new since
 -- the last read counts, and nothing is lost if a read had to wait.
 local counted = {}      -- sessionID -> { [name] = amount already counted }
+local countedLength = {} -- sessionID -> the session's length at the last read
 local sessionOrder = {}
 
 local function Counted(id)
@@ -125,6 +126,11 @@ function ns:ReadAvoidable()
   diag.sources = #session.combatSources
 
   local group = GroupNames()
+  -- a session that got shorter was reset by the game (the "current" fallback reuses one id):
+  -- start counting it from zero again (issue #14)
+  local length = Usable(session.durationSeconds) and type(session.durationSeconds) == "number" and session.durationSeconds or nil
+  if length and countedLength[id] and length < countedLength[id] then counted[id] = nil end
+  countedLength[id] = length or countedLength[id]
   local seen = Counted(id)
   local offenders, rows = {}, {}
   for _, src in ipairs(session.combatSources) do
@@ -141,8 +147,10 @@ function ns:ReadAvoidable()
     local name = ns.ShortName(src.name)
     local mine = src.isLocalPlayer == true
     local key = mine and (UnitName("player") or name) or name
-    local new = src.totalAmount - (seen[key] or 0)
-    seen[key] = math.max(seen[key] or 0, src.totalAmount)
+    local before = seen[key] or 0
+    if src.totalAmount < before then before = 0 end -- this player's total went down: a new fight
+    local new = src.totalAmount - before
+    seen[key] = src.totalAmount
     if new >= self.db.shameMinDamage and (mine or group[name]) then
       local spellID, spellAmount, creature = nil, 0, nil
       if C_DamageMeter.GetCombatSessionSourceFromID and type(id) == "number" and Usable(src.sourceGUID) then

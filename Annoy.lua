@@ -82,6 +82,7 @@ local function ClockTick()
   if m ~= 0 or h == lastChime then return end
   lastChime = h
   if not Ambient("mooClock") then return end
+  ns:Bump("clockChimes") -- "BONG" and "Around the Clock" read this (issue #15)
   local h12 = h % 12
   if h12 == 0 then h12 = 12 end
   local text = ("BONG. It is %d o'clock. %s"):format(h12, (string.rep("MOO ", h12):gsub(" $", "")))

@@ -68,10 +68,12 @@ function ns:BingoMark(key)
   local card = Card()
   if not card or not LABEL[key] then return false end
   local changed = false
+  local newly = {}
   for i, sq in ipairs(card.squares) do
     if sq == key and not card.marked[i] then
       card.marked[i] = true
       changed = true
+      newly[i] = true
     end
   end
   if not changed then return false end
@@ -85,8 +87,13 @@ function ns:BingoMark(key)
       self:AddMilk(1000)
     end
     card.lines = lines
+    -- the line this square just finished (not simply the last one on the card: issue #16)
+    local line = cells[#cells]
+    for _, l in ipairs(cells) do
+      for _, i in ipairs(l) do if newly[i] then line = l break end end
+    end
     local labels = {}
-    for _, i in ipairs(cells[#cells]) do
+    for _, i in ipairs(line) do
       local sq = card.squares[i]
       labels[#labels + 1] = sq == "free" and "FREE" or LABEL[sq]
     end

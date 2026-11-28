@@ -245,8 +245,13 @@ function ns:PostMeter(modeKey, which, automatic)
   local line = header .. " " .. table.concat(parts, "  ")
   local sent
   if automatic then sent = self:Queue(ch, line, 2) else sent = self:SendNow(ch, line) end
-  if sent then self:Bump("meterPosts") end
-  return sent, sent and nil or (ns:ChannelLabel(ch) .. " is HARD MUTED.")
+  if sent then
+    self:Bump("meterPosts")
+    return true
+  end
+  if self:IsMuted(ch) then return false, ns:ChannelLabel(ch) .. " is HARD MUTED." end
+  if self.db.panic then return false, "Automatic posting is paused (/moo on to resume)." end
+  return false, "Couldn't post to " .. ns:ChannelLabel(ch) .. " right now."
 end
 
 ---------------------------------------------------------------------------

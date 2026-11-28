@@ -67,7 +67,8 @@ end
 
 function ns:SpendMilk(amount)
   local f = F()
-  if not f or f.milk < amount then return false end
+  -- (amount ~= amount: NaN compares false with everything, so it would always "fit": issue #12)
+  if not f or type(amount) ~= "number" or amount ~= amount or amount < 0 or f.milk < amount then return false end
   f.milk = f.milk - amount
   return true
 end
@@ -177,7 +178,7 @@ function ns:QuestsForToday()
       if not used[i] then used[i] = true picks[#picks + 1] = i end
     end
     self.db.stats.c.dailyChannels, self.db.stats.c.dailyCombo = 0, 0
-    self.dailyChannelSet = {}
+    q.channels = {}
     q.day, q.list, q.allDone = today, {}, false
     for _, i in ipairs(picks) do
       local def = ns.QUEST_POOL[i]
@@ -224,12 +225,14 @@ function ns:CheckQuests()
 end
 
 -- quests that count "today only" things
-ns.dailyChannelSet = {}
+-- (the list of today's channels is saved with the quests, so /reload can't count one twice: #16)
 table.insert(ns.mooListeners, function(key)
   if not F() then return end
   ns:QuestsForToday()
-  if not ns.dailyChannelSet[key] then
-    ns.dailyChannelSet[key] = true
+  local q = F().quests
+  q.channels = q.channels or {}
+  if not q.channels[key] then
+    q.channels[key] = true
     ns.db.stats.c.dailyChannels = (ns.db.stats.c.dailyChannels or 0) + 1
   end
   if (ns.combo or 0) > (ns.db.stats.c.dailyCombo or 0) then ns.db.stats.c.dailyCombo = ns.combo end

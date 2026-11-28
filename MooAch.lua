@@ -292,7 +292,7 @@ Tiers("weird", Stat("fmSegments"), {
 Tiers("weird", Stat("horoscopes"), { { "w_horo7", "Written in the Stars", "Read 7 daily Moo-roscopes.", 7, 10, "Spell_Holy_SealOfWisdom" } })
 Once("weird", "w_hear", "Selective Hearing", "Turn on Hear Moo.", 5, MOO_ICON, function() return MH.db.effects.hearMoo end)
 Once("weird", "w_mute", "The Sound of Silence", "Hard mute a channel.", 5, "Spell_Holy_Silence",
-  function() return next(MH.db.muted) ~= nil end)
+  function() return MH:GetStat("mutesSet") > 0 end) -- a mute you set, not the default Officer one (issue #15)
 Tiers("weird", Stat("panicUsed"), { { "w_panic", "Cold Hooves", "Use the panic button.", 1, 5, "Spell_Holy_Silence" } })
 Tiers("weird", Field("afkMoos"), { { "w_afk50", "Patient Stalker", "Moo at AFK friends 50 times.", 50, 15, "Spell_Nature_Sleep" } })
 Tiers("weird", Field("welcomes"), { { "w_welcome25", "Welcome Wagon", "Welcome 25 friends and guildmates.", 25, 15, "INV_Letter_01" } })

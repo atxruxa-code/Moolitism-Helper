@@ -259,6 +259,7 @@ local function ShowNextToast()
   toast.title:SetText(item.title)
   toast.text:SetText(item.text)
   toast.points:SetText(item.points and item.points > 0 and tostring(item.points) or "")
+  toast.openTab = item.openTab -- per toast, so a rank-up toast doesn't open achievements (issue #16)
   toast.t = 0
   toast:SetAlpha(1)
   toast:Show()
@@ -310,9 +311,9 @@ local function CreateToast()
   end)
 end
 
-function ns:Toast(title, text, icon, points)
+function ns:Toast(title, text, icon, points, openTab)
   if not toast then return end
-  table.insert(toastQueue, { title = title, text = text, icon = icon, points = points })
+  table.insert(toastQueue, { title = title, text = text, icon = icon, points = points, openTab = openTab })
   if #toastQueue > 6 then table.remove(toastQueue, 1) end
   if not toast:IsShown() then ShowNextToast() end
 end
@@ -320,8 +321,7 @@ end
 -- the achievement engine calls this when you earn one
 function ns:AchievementToast(a)
   if not toast then return end
-  toast.openTab = "ach"
-  self:Toast("MOO-CHIEVEMENT EARNED", a.name, a.icon, a.points)
+  self:Toast("MOO-CHIEVEMENT EARNED", a.name, a.icon, a.points, "ach")
 end
 
 ---------------------------------------------------------------------------

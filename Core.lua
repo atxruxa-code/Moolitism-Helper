@@ -353,6 +353,7 @@ function ns:IsMuted(key)
 end
 
 function ns:SetMuted(key, muted)
+  if muted and self.db.muted[ns.MuteKey(key)] ~= true then self:Bump("mutesSet") end -- "The Sound of Silence" (issue #15)
   -- false, not nil: nil would let the defaults (Officer is muted out of the box) come back at /reload
   self.db.muted[ns.MuteKey(key)] = muted and true or false
   if muted then

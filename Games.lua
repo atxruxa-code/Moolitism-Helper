@@ -118,6 +118,17 @@ end
 ns.GroupSay = Group
 ns.TextAfter = After
 
+-- A sender fixed to one chat ("group" or "guild"), for lines that come later, like a question's
+-- answer or timeout. Group() follows whichever chat the latest game used, so a game started in
+-- the other chat meanwhile would take them there (issue #20).
+local function SayIn(scope)
+  return function(text, priority, maxAge)
+    local ch = ns:ScopeChannel(scope)
+    if ch then return ns:Queue(ch, text, priority or GAME, maxAge or 60) end
+    return false
+  end
+end
+
 -- Interviews and other party-only talk always go to the group
 local function GroupChat(text, priority, maxAge)
   local ch = ns:GroupChannel()
@@ -204,8 +215,10 @@ function ns:RemoveGroupListener(key) listeners[key] = nil end
 -- End running games and forget pending party questions. scope "group": only if the game runs in
 -- group chat (leaving a group doesn't end a guild game). nil: everything (panic).
 function ns:StopGames(scope)
-  for k in pairs(ns.pending) do
-    if not scope or k:sub(1, 2) ~= "W:" then ns.pending[k] = nil end
+  -- whispered questions are kept; a guild game's question (a Moo-lette debt, say) outlives
+  -- leaving the group (issue #20)
+  for k, p in pairs(ns.pending) do
+    if not scope or (k:sub(1, 2) ~= "W:" and (p.scope or "group") == scope) then ns.pending[k] = nil end
   end
   for field in pairs(GAME_FIELDS) do
     if self[field] and (not scope or self:GameScopeOf(field) == scope) then
@@ -576,7 +589,8 @@ function ns:Roulette(player)
           return "That was not an ALL-CAPS MOO. The debt grows. MOO."
         end,
         timeout = ("%s refused to pay their Moo-lette debt. Disgraceful. MOOOOO."):format(player),
-        say = Group,
+        -- the reply and the timeout stay in the chat this game was played in
+        say = SayIn(self.gameScope), scope = self.gameScope,
       })
     elseif self.db.channels.YELL and not self:IsMuted("YELL") then
       ns.forceYell = true
@@ -646,15 +660,16 @@ end
 -- Asking people things and waiting for their reply
 ---------------------------------------------------------------------------
 
--- pending[key] = { expires, react(msg) -> reply or nil, timeout = text or nil, where }
+-- pending[key] = { expires, react(msg) -> reply or nil, timeout = text or nil, where, scope }
 -- key: a short name for party questions, "W:<sender>" for whispers
+-- scope: the chat the question belongs to ("group" or "guild"; group when not given)
 local pending = {}
 ns.pending = pending
 
 function ns:Ask(name, question, opts)
   local say = opts.say or GroupChat
   pending[name] = { expires = ns.Now() + (opts.seconds or 45), react = opts.react, timeout = opts.timeout,
-    ignored = opts.ignored, say = say }
+    ignored = opts.ignored, say = say, scope = opts.scope or "group" }
   if question then say(question) end
 end
 

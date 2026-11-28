@@ -1,4 +1,4 @@
-# Moolitism Helper 3.5.1
+# Moolitism Helper 3.6.1
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,26 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.6.1
+
+Fixes for GitHub issues #12-#16:
+- The Moo Market rejects "nan", "inf" and other non-numbers (`/moo invest MILK nan` used to turn your milk
+  into NaN, after which everything was free), and repairs saved data that was already broken (#12).
+- Hear Moo leaves Moo Cipher lines alone, so they can be decoded, and doesn't translate your own lines (#13).
+- Moo-litism no longer shames wrong amounts when the game resets its "current fight" view (#14).
+- "BONG" and "Around the Clock" can be earned (the Moo Clock now counts its chimes), and "The Sound of
+  Silence" needs a mute you set yourself (#15).
+- The "moo in 3 channels" daily can't be finished by reloading; BINGO announces the line you just finished;
+  clicking a rank-up toast no longer opens the achievements tab; `/moo longmoo` with a mistyped channel
+  posts nothing; Moo Meter posting reports the real reason when it fails (#16).
+
+## What's new in 3.6
+
+- **MooScape** (`/mooscape`, `/moo quest`): Moo Quest grew into a full point-and-click RPG: five zones,
+  eight skills with crafting, gear, a bank, seven quests ending with the Bone Matriarch, party members on
+  your map, and much fancier graphics.
+- **Yo Moo-ma jokes**: friends saying "your mom" in chat get a cow-themed roast; `/moo mom [name]` sends one.
 
 ## What's new in 3.5.1
 

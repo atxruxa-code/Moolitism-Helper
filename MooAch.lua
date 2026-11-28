@@ -207,10 +207,10 @@ for _, g in ipairs(MH.GENERATORS or {}) do
     function() return (MH.db.farm and MH.db.farm.owned[g.key] or 0) > 0 end)
 end
 Tiers("farm", Stat("questsDone"), {
-  { "f_q1", "Daily Chores", "Complete a daily Moo Quest.", 1, 5, "INV_Scroll_03" },
-  { "f_q10", "Reliable Farmhand", "Complete 10 daily Moo Quests.", 10, 10, "INV_Scroll_03" },
-  { "f_q50", "Employee of the Month", "Complete 50 daily Moo Quests.", 50, 20, "INV_Scroll_03" },
-  { "f_q100", "Lifetime Farmhand", "Complete 100 daily Moo Quests.", 100, 30, "INV_Scroll_03" },
+  { "f_q1", "Daily Chores", "Complete a daily MooScape.", 1, 5, "INV_Scroll_03" },
+  { "f_q10", "Reliable Farmhand", "Complete 10 daily MooScapes.", 10, 10, "INV_Scroll_03" },
+  { "f_q50", "Employee of the Month", "Complete 50 daily MooScapes.", 50, 20, "INV_Scroll_03" },
+  { "f_q100", "Lifetime Farmhand", "Complete 100 daily MooScapes.", 100, 30, "INV_Scroll_03" },
 })
 Tiers("farm", Stat("questStreakBest"), {
   { "f_streak3", "Routine", "Finish all daily quests 3 days in a row.", 3, 10, "INV_Misc_PocketWatch_02" },
@@ -369,16 +369,36 @@ Tiers("fun", Stat("gtfoAlarms"), {
   { "x_gtfo100", "Professional Floor Tank", "Set off the Moo GTFO alarm 100 times.", 100, 20, "Spell_Fire_Fire" },
 })
 Tiers("fun", Stat("poemsRecited"), { { "x_poem", "Moo-et Laureate", "Recite a mournful moo-poem for a fallen friend.", 1, 10, "INV_Misc_Book_09" } })
+Tiers("fun", Stat("momJokes"), {
+  { "x_mom1", "Yo Moo-ma", "Tell a Yo Moo-ma joke.", 1, 5, "INV_Misc_Food_15" },
+  { "x_mom25", "Moo-ma's Favourite", "Tell 25 Yo Moo-ma jokes.", 25, 15, "INV_Misc_Food_15" },
+})
 Tiers("fun", Stat("longMoos"), { { "x_longmoo", "Moooooooooooooooo", "Send the longest moo chat allows.", 1, 5, KODO } })
 Tiers("fun", Stat("wrappedPosts"), { { "x_wrapped", "That's a Wrap", "Post your Moo Wrapped to your party.", 1, 10, "INV_Misc_Note_02" } })
 local QUEST_ICON = "Spell_Nature_Polymorph_Cow"
-Tiers("fun", Stat("rpgOpened"), { { "x_rpg1", "Into the Pasture Lands", "Start Moo Quest (/pasture).", 1, 5, QUEST_ICON } })
+Tiers("fun", Stat("rpgOpened"), { { "x_rpg1", "Into the Pasture Lands", "Start MooScape (/mooscape).", 1, 5, QUEST_ICON } })
 Tiers("fun", Stat("rpgTotalLevel"), {
-  { "x_rpg50", "Well-Rounded Calf", "Reach total level 50 in Moo Quest.", 50, 15, QUEST_ICON },
-  { "x_rpg150", "Master of the Pasture", "Reach total level 150 in Moo Quest.", 150, 40, QUEST_ICON },
+  { "x_rpg50", "Well-Rounded Calf", "Reach total level 50 in MooScape.", 50, 10, QUEST_ICON },
+  { "x_rpg150", "Seasoned Adventurer", "Reach total level 150 in MooScape.", 150, 25, QUEST_ICON },
+  { "x_rpg300", "Master of the Pasture", "Reach total level 300 in MooScape.", 300, 50, QUEST_ICON },
+  { "x_rpg400", "MooScape Maxed", "Reach level 50 in all eight MooScape skills.", 400, 100, QUEST_ICON },
 })
-Tiers("fun", Stat("rpgKodoKills"), { { "x_rpgkodo", "Kodo Wrangler", "Defeat a Wild Kodo in Moo Quest.", 1, 15, "Ability_Mount_Kodo_01" } })
-Tiers("fun", Stat("rpgMilkEarned"), { { "x_rpgmilk", "Honest Trader", "Earn 1,000 milk selling to Trader Moo-rgan.", 1000, 15, "INV_Misc_Coin_02" } })
+Tiers("fun", Stat("rpgZones"), { { "x_rpgzones", "Explorer of the Herdlands", "Visit all five MooScape zones.", 5, 15, "INV_Misc_Map_01" } })
+Tiers("fun", Stat("rpgQuests"), {
+  { "x_rpgquest1", "Errand Calf", "Complete a MooScape quest.", 1, 10, "INV_Misc_Note_01" },
+  { "x_rpgquest7", "Hero of the Herdlands", "Complete all seven MooScape quests.", 7, 40, "INV_Misc_Note_01" },
+})
+Tiers("fun", Stat("rpgKills"), {
+  { "x_rpgkill25", "Beast Bopper", "Defeat 25 monsters in MooScape.", 25, 10, "Ability_Hunter_Pet_Wolf" },
+  { "x_rpgkill250", "Scourge of the Wilds", "Defeat 250 monsters in MooScape.", 250, 30, "Ability_Hunter_Pet_Wolf" },
+})
+Tiers("fun", Stat("rpgKodoKills"), { { "x_rpgkodo", "Kodo Wrangler", "Defeat a Bone Kodo in MooScape.", 1, 15, "Ability_Mount_Kodo_01" } })
+Tiers("fun", Stat("rpgBossKills"), { { "x_rpgboss", "Matriarch Slayer", "Defeat the Bone Matriarch in MooScape.", 1, 50, "Ability_Mount_Kodo_01" } })
+Tiers("fun", Stat("rpgSilverhammer"), { { "x_rpgsmith", "Master Smith", "Forge a Silverhorn Hammer in MooScape.", 1, 30, "INV_Hammer_20" } })
+Tiers("fun", Stat("rpgMilkEarned"), {
+  { "x_rpgmilk", "Honest Trader", "Earn 1,000 milk selling to Trader Moo-rgan.", 1000, 10, "INV_Misc_Coin_02" },
+  { "x_rpgmilk50k", "Merchant Prince", "Earn 50,000 milk selling to Trader Moo-rgan.", 50000, 30, "INV_Misc_Coin_02" },
+})
 
 -- re-check whenever MooHelper's numbers change, and every few seconds as a backstop
 local acc = 0

@@ -567,9 +567,11 @@ local HELP = {
   "|cffffd100Herd & more|r  /moo herd  |  /moo ach [post]  |  /moo fm  |  /moo horoscope [name]  |  /moo echo <name|off>  |  /moo shame [post]",
   "|cffffd100Moo Meter|r  /moo meter  |  /moo meter <damage|healing|taken|avoidable|interrupts|deaths|moos>  |  /moo meter overall  |  /moo meter post [mode] [overall]",
   "|cffffd100Bingo & Market|r  /moo bingo [new]  |  /moo market  |  /moo invest <MILK|HAY|KODO> <amount|max>  |  /moo sell <stock> <amount|all>",
+  "|cffffd100Yo Moo-ma|r  /moo mom [name]  (friends saying \"your mom\" in chat get one too)",
   "|cffffd100Not reacting to someone?|r  /moo heard  (what happened to the last lines people typed, and why)",
   "|cffffd100Moo-litism & GTFO|r  /moo shame [post]  |  /moo moolitism [check]  |  /moo gtfo [on|off|test|<percent>]  |  /moo longmoo [channel]",
   "|cffffd100Raid boss|r  /moo boss [guild]  (friends say \"raid boss\")  |  |cffffd100Moo Pass|r  /moo pass  |  /moo title [name|none]  |  |cffffd100Wrapped|r  /moo wrapped [post]",
+  "|cffffd100MooScape|r  /mooscape (or /moo quest): an RPG with five zones, eight skills, gear, quests and a boss",
   "|cffffd100Herd Keepers|r  /moo keepers  (others with the addon)  |  /moo duel <name>  (Cow Duel)",
   "|cffffd100Settings|r  /moo hear [dialect]  |  /moo cooldown <s>  |  /moo alarm <min>  |  /moo button  |  /moo stats",
   "|cffffd100Panic|r  /moo off  (stop all automatic moos)  |  /moo on",
@@ -766,6 +768,15 @@ SlashCmdList.MOOHELPER = function(msg)
     local ok, why = ns:StartBoss()
     ns.startScope = nil
     Result(ok, why)
+
+  elseif cmd == "mom" or cmd == "yomama" then
+    -- a Yo Moo-ma joke to your group (a slash command, so it's your own choice to send it)
+    local ch = ns:GroupChannel() or (IsInGuild() and "GUILD") or nil
+    if not ch then ns:Print(ns:MomJoke(rest ~= "" and rest or nil)) return end
+    if not ns:SendNow(ch, ns:MomJoke(rest ~= "" and rest or nil)) then ns:Print(ns:ChannelLabel(ch) .. " is HARD MUTED.") end
+
+  elseif cmd == "mooscape" or cmd == "quest" or cmd == "pasture" or cmd == "rpg" then
+    if ns.RPG then ns.RPG:Toggle() end
 
   elseif cmd == "pass" then
     local p = ns.db.pass

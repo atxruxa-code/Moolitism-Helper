@@ -26,6 +26,7 @@ local XP_FOR = {
   cowDuels = 30, cowDuelWins = 30, bessieFeeds = 10, bessiePets = 2, bessieBrushes = 5, bessieShows = 10,
   interviewsAnswered = 10, meterPosts = 10, goldenMoos = 40, questsDone = 75, quickdrawWins = 20,
   moonsoons = 25, stampedeHours = 25, peersMet = 50, promotions = 20, cipherEncoded = 5, trades = 5,
+  rpgLevelUps = 15, rpgQuests = 100, rpgBossKills = 250,
 }
 local DAILY_CAP = { moo = 300, trades = 100 }
 local GAME_XP = 25

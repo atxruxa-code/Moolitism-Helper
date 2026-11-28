@@ -42,7 +42,7 @@ local function SendAddon(msg, channel, target)
 end
 
 local function Version()
-  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.5.0"
+  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.6.0"
 end
 
 local function CowFields()
@@ -61,6 +61,12 @@ end
 ---------------------------------------------------------------------------
 -- Marking our own lines
 ---------------------------------------------------------------------------
+
+-- for other modules (MooScape positions): group channels only
+function ns:SendPeerMessage(msg, channel)
+  if channel ~= "PARTY" and channel ~= "RAID" and channel ~= "INSTANCE_CHAT" then return false end
+  return SendAddon(msg, channel)
+end
 
 local ADDON_CHANNEL = { PARTY = "PARTY", RAID = "RAID", INSTANCE_CHAT = "INSTANCE_CHAT", GUILD = "GUILD", OFFICER = "OFFICER" }
 
@@ -402,6 +408,13 @@ local function OnAddonMessage(prefix, text, channel, sender)
     NotePeer(short, full, nil, channel)
     local seconds = math.max(0, math.min(tonumber(parts[2]), 240))
     ns.quietUntil = seconds > 0 and ns.Now() + seconds or 0
+  elseif kind == "RPG" and (channel == "PARTY" or channel == "RAID" or channel == "INSTANCE_CHAT") then
+    -- MooScape: where a party member's cow is. Every field is checked before it's used.
+    local zone, x, y, total = parts[2], tonumber(parts[3]), tonumber(parts[4]), tonumber(parts[5])
+    if ns.RPG and ns.RPG.OnPeer and type(zone) == "string" and zone:match("^%l+$") and #zone <= 16
+      and x and y and total and x == math.floor(x) and y == math.floor(y) then
+      ns.RPG:OnPeer(short, zone, x, y, ns.SafeNumber(total, 0, 1000, 0))
+    end
   elseif kind == "MERCY" and tonumber(parts[2]) then
     NotePeer(short, full, nil, channel)
     local untilT = ns.Now() + math.max(0, math.min(tonumber(parts[2]), 600))

@@ -336,14 +336,18 @@ local function MournNow()
   if not names or #names == 0 or not Trigger("partyDeath") then return end
   table.sort(names)
   local who = ListNames(names)
+  -- Whether it's a wipe counts everyone who died, you included: each copy's list leaves its own
+  -- player out, so counting only the list let copies disagree about the same wipe (issue #20).
+  local selfDead = UnitIsDeadOrGhost and UnitIsDeadOrGhost("player")
+  local isWipe = #names + ((Usable(selfDead) and selfDead) and 1 or 0) >= 5
   local text
-  if #names == 1 then
+  if isWipe then
+    text = ("A MOO OF MOURNING for the fallen herd: %s. That was a wipe. Moooooo."):format(who)
+  elseif #names == 1 then
     text = Pick({
       "MOO OF MOURNING for %s. Mooooooooo.", "%s has fallen. The herd moos as one.",
       "A single, respectful moo for %s.", "%s has gone to the great pasture in the sky. Moo.",
     }):format(who)
-  elseif #names >= 5 then
-    text = ("A MOO OF MOURNING for the fallen herd: %s. That was a wipe. Moooooo."):format(who)
   else
     text = ("MOO OF MOURNING for %s. The herd moos as one. Moooo."):format(who)
   end
@@ -354,18 +358,19 @@ local function MournNow()
     poem = Pick(ns.MOURN_POEMS)
   end
   -- Every copy names a death the same way ("mourn:Bob"), so whichever copy hosts, the others
-  -- stand down, even if they gathered the deaths into different batches. A wipe is one claim per
-  -- minute of server time instead of one per name (issue #17).
+  -- stand down, even if they gathered the deaths into different batches. A wipe is one claim
+  -- instead of one per name (issue #17). It needs no timestamp in it: hosting only counts claims
+  -- made after this copy asked, so an earlier wipe's claim can't stand in for this one, and a
+  -- per-minute id split a wipe that crossed the minute into two (issue #20).
   local ids = {}
-  if #names >= 5 then
-    local server = (GetServerTime and GetServerTime()) or time()
-    ids[1] = "mourn:wipe:" .. math.floor(server / 60)
+  if isWipe then
+    ids[1] = "mourn:wipe"
   else
     for _, n in ipairs(names) do ids[#ids + 1] = "mourn:" .. n end
   end
   ns:RunAsHostMany("group", ids, function(mine)
     -- if another copy already mourned some of them, say only the rest
-    if #mine < #ids and #names < 5 then
+    if #mine < #ids and not isWipe then
       local left = {}
       for _, id in ipairs(mine) do left[#left + 1] = id:sub(7) end
       who = ListNames(left)
@@ -449,9 +454,15 @@ local mooBackLevel, lastMooBack = {}, {}
 function ns.SaysMoo(msg)
   return type(msg) == "string" and msg:lower():find("%f[%a]mo[o]+%f[%A]") ~= nil
 end
+local MOO_COUNTING_GAMES = { "battle", "mooCheck", "boss", "draw" }
 local function MooBack(sender, key)
-  -- games that count moos (here, or hosted by another copy in this chat): don't answer every one
-  if ns.battle or ns.mooCheck or ns.boss or ns.draw or (ns.quietUntil or 0) > ns.Now() then return end
+  -- games that count moos (here, or hosted by another copy in this chat): don't answer every one.
+  -- Only games in this chat count: a guild MOO-OFF doesn't silence party moo-backs (issue #20).
+  local scope = key == "GUILD" and "guild" or "group"
+  for _, field in ipairs(MOO_COUNTING_GAMES) do
+    if ns[field] and (not ns.GameScopeOf or ns:GameScopeOf(field) == scope) then return end
+  end
+  if (ns.quietUntil and ns.quietUntil[scope] or 0) > ns.Now() then return end
   local now = ns.Now()
   if now - (lastMooBack[key] or -1000) < 3 then return end
   if not ns:AllowAutoReply(sender) then return end

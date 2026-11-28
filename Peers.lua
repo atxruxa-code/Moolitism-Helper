@@ -199,8 +199,9 @@ function ns:RunAsHost(scope, id, asker, fn)
 end
 
 -- a moo-counting game started here: the other copies in its chat hold their moo-backs
--- (0 = it's over). Sent to the game's chat.
-ns.quietUntil = 0
+-- (0 = it's over). Sent to the game's chat, and kept per chat: a guild game quiets guild
+-- moo-backs, not your party's (issue #20).
+ns.quietUntil = { group = 0, guild = 0 }
 function ns:ShareQuiet(seconds)
   local channel = self.GameChannel and self:GameChannel() or self:GroupChannel()
   if channel and not self:IsMuted(channel) then SendAddon(Join("QUIET", math.floor(seconds)), channel) end
@@ -432,7 +433,9 @@ local function OnAddonMessage(prefix, text, channel, sender)
   elseif kind == "QUIET" and tonumber(parts[2]) then
     NotePeer(short, full, nil, channel)
     local seconds = math.max(0, math.min(tonumber(parts[2]), 240))
-    ns.quietUntil = seconds > 0 and ns.Now() + seconds or 0
+    local scope = channel == "GUILD" and "guild"
+      or ((channel == "PARTY" or channel == "RAID" or channel == "INSTANCE_CHAT") and "group") or nil
+    if scope then ns.quietUntil[scope] = seconds > 0 and ns.Now() + seconds or 0 end
   elseif kind == "RPG" and (channel == "PARTY" or channel == "RAID" or channel == "INSTANCE_CHAT") then
     -- MooScape: where a party member's cow is. Every field is checked before it's used.
     local zone, x, y, total = parts[2], tonumber(parts[3]), tonumber(parts[4]), tonumber(parts[5])
@@ -487,8 +490,19 @@ end)
 ns:On("CHAT_MSG_ADDON", OnAddonMessage)
 ns:On("GROUP_ROSTER_UPDATE", function() ns:SayHello() end)
 
+-- Peers are forgotten after an hour without an addon message, and hellos otherwise only go out
+-- at login and on roster changes. Say hello every half hour so copies in a quiet, stable group
+-- or guild keep knowing about each other and don't all host the same thing (issue #20).
+local HELLO_EVERY = 1800
+local nextHello
 table.insert(ns.tickFns, function()
   local now = ns.Now()
+  if not nextHello then
+    nextHello = now + HELLO_EVERY
+  elseif now >= nextHello then
+    nextHello = now + HELLO_EVERY
+    ns:SayHello(true)
+  end
   for h, t in pairs(foreign) do if now - t > MARK_TTL then foreign[h] = nil end end
   for k, t in pairs(claims) do if now - t > 60 then claims[k] = nil end end
   for name, p in pairs(ns.peers) do if now - p.seen > 3600 then ns.peers[name] = nil end end

@@ -1,4 +1,4 @@
-# Moolitism Helper 3.6.1
+# Moolitism Helper 3.6.2
 
 Taurens moo. Now you do too. With a cow, a farm, a herd, 14 party games, a raid boss, a Moo Pass, a Moo Meter, Moo Bingo, a stock market and 640+ moo-chievements.
 For **World of Warcraft: Forever** (interface 16001). Only you need it installed.
@@ -55,6 +55,17 @@ rank-ups and level-ups (group + guild), whisper conversations.
 Channels: say, yell, e, party, raid, instance, guild, officer, trade, general, or a channel number.
 The rest of a barrage follows one a second. Say, Yell and public channels take up to 3 per key press
 (WoW only lets addons post there when you press something). Or use the launch pad in Moo HQ.
+
+## What's new in 3.6.2
+
+Fixes for GitHub issue #17:
+- Group members the game shows as "Unknown" (not loaded yet) are never interviewed, mourned, AFK-stalked or
+  counted as present.
+- Deaths are tracked per player, not per name, and nobody is mourned twice within a minute, so two
+  "Unknown"s or two players with the same name can't set off mourning over and over.
+- With several copies of the addon in a party, a death (or a wipe) is mourned once, even when each copy
+  saw a different list of the dead.
+- The Moo Clock chimes once per chat, not once per addon user.
 
 ## What's new in 3.6.1
 

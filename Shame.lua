@@ -44,7 +44,7 @@ local function GroupNames()
     local unit = prefix .. i
     if UnitExists(unit) then
       local name = UnitName(unit)
-      if Usable(name) and name then names[name] = true end
+      if ns.KnownName(name) then names[name] = true end
     end
   end
   return names

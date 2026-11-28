@@ -149,7 +149,7 @@ local function GroupMembers()
     local unit = prefix .. i
     if UnitExists(unit) and not UnitIsUnit(unit, "player") and not Offline(unit) then
       local name = UnitName(unit)
-      if Usable(name) and name then names[#names + 1] = name end
+      if ns.KnownName(name) then names[#names + 1] = name end
     end
   end
   return names
@@ -165,7 +165,7 @@ function ns:OfflineMembers()
     local unit = prefix .. i
     if UnitExists(unit) and Offline(unit) then
       local name = UnitName(unit)
-      if Usable(name) and name then out[ns.ShortName(name)] = true end
+      if ns.KnownName(name) then out[ns.ShortName(name)] = true end
     end
   end
   return out

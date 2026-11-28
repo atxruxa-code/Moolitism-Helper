@@ -42,7 +42,7 @@ local function SendAddon(msg, channel, target)
 end
 
 local function Version()
-  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.6.1"
+  return (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("Moolitism-Helper", "Version")) or "3.6.2"
 end
 
 local function CowFields()
@@ -209,6 +209,31 @@ end
 function ns:ShareMercy(seconds, scope)
   local channel = scope == "guild" and (IsInGuild() and "GUILD" or nil) or self:GroupChannel()
   if channel then SendAddon(Join("MERCY", math.floor(seconds)), channel) end
+end
+
+-- Like RunAsHost, for several things decided together (say, everyone who died in a wipe):
+-- fn(list) gets the ids this copy should handle (all of them, or those nobody claimed).
+function ns:RunAsHostMany(scope, ids, fn)
+  if #ids == 0 then return end
+  local channel = scope == "guild" and (IsInGuild() and "GUILD" or nil) or self:GroupChannel()
+  local function Host(list)
+    if #list == 0 then return end
+    if channel and not self:IsMuted(channel) then
+      for _, id in ipairs(list) do SendAddon(Join("HOST", scope, id), channel) end
+    end
+    fn(list)
+  end
+  local rank = self:HostRank(scope)
+  if rank == 0 then Host(ids) return end
+  local asked = ns.Now()
+  C_Timer.After(rank * HOST_GAP, function()
+    local left = {}
+    for _, id in ipairs(ids) do
+      local key = scope .. "~" .. tostring(id):gsub(SEP, "")
+      if (claims[key] or -1000) < asked - 1 then left[#left + 1] = id end
+    end
+    Host(left)
+  end)
 end
 
 ---------------------------------------------------------------------------

@@ -195,6 +195,13 @@ function ns.Clean(s)
   return (tostring(s or ""):gsub("|", ""):gsub("%c", ""))
 end
 
+-- The game calls group members it hasn't loaded yet (far away, still zoning) "Unknown"
+-- (UNKNOWNOBJECT). That's not a person: never interview, mourn or count it (issue #17).
+function ns.KnownName(name)
+  if not ns.Usable(name) or type(name) ~= "string" or name == "" then return false end
+  return name ~= (UNKNOWNOBJECT or "Unknown") and name ~= (UNKNOWN or "Unknown") and name ~= "Unknown"
+end
+
 function ns.ShortName(name)
   name = tostring(name or "")
   return (name:match("^([^%-]+)")) or name

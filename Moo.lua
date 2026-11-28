@@ -353,7 +353,24 @@ local function MournNow()
     lastPoem = now
     poem = Pick(ns.MOURN_POEMS)
   end
-  ns:RunAsHost("group", "mourn:" .. table.concat(names, ","), nil, function()
+  -- Every copy names a death the same way ("mourn:Bob"), so whichever copy hosts, the others
+  -- stand down, even if they gathered the deaths into different batches. A wipe is one claim per
+  -- minute of server time instead of one per name (issue #17).
+  local ids = {}
+  if #names >= 5 then
+    local server = (GetServerTime and GetServerTime()) or time()
+    ids[1] = "mourn:wipe:" .. math.floor(server / 60)
+  else
+    for _, n in ipairs(names) do ids[#ids + 1] = "mourn:" .. n end
+  end
+  ns:RunAsHostMany("group", ids, function(mine)
+    -- if another copy already mourned some of them, say only the rest
+    if #mine < #ids and #names < 5 then
+      local left = {}
+      for _, id in ipairs(mine) do left[#left + 1] = id:sub(7) end
+      who = ListNames(left)
+      text = (#left == 1 and "MOO OF MOURNING for %s. Mooooooooo." or "MOO OF MOURNING for %s. The herd moos as one. Moooo."):format(who)
+    end
     ToGroup(text)
     if poem then
       for _, line in ipairs(poem) do
@@ -376,18 +393,31 @@ local function Mourn(name)
 end
 
 -- returns the unit's name when it was looked at
+-- Deaths are tracked per player (their GUID), not per name: two players shown as "Unknown", or
+-- with the same name on different realms, used to share one entry and flip it back and forth,
+-- mourning the same death over and over (issue #17).
+local lastMourned = {}
+local MOURN_AGAIN = 60 -- never mourn the same player twice within a minute
 local function CheckUnit(unit)
   if not UnitExists(unit) or UnitIsUnit(unit, "player") then return nil end
   local name = UnitName(unit)
   local dead = UnitIsDeadOrGhost(unit)
-  if not Usable(name) or not Usable(dead) or not name then return nil end
+  if not ns.KnownName(name) or not Usable(dead) then return nil end
+  local guid = UnitGUID and UnitGUID(unit)
+  local key = (Usable(guid) and type(guid) == "string" and guid ~= "") and guid or name
   dead = dead and true or false
-  local before = wasDead[name]
-  if before == dead then return name end -- nothing changed: the common case, nothing to do
-  wasDead[name] = dead
+  local before = wasDead[key]
+  if before == dead then return key end -- nothing changed: the common case, nothing to do
+  wasDead[key] = dead
   -- the first look at someone only records them (they may have been dead before we arrived)
-  if dead and before == false then Mourn(ns.ShortName(name)) end
-  return name
+  if dead and before == false then
+    local now = ns.Now()
+    if now - (lastMourned[key] or -1000) >= MOURN_AGAIN then
+      lastMourned[key] = now
+      Mourn(ns.ShortName(name))
+    end
+  end
+  return key
 end
 
 -- full scan: on roster changes (and for tests)
@@ -397,8 +427,8 @@ function ns:CheckPartyDeaths()
     local name = CheckUnit(unit)
     if name then seen[name] = true end
   end
-  for name in pairs(wasDead) do
-    if not seen[name] then wasDead[name] = nil end
+  for key in pairs(wasDead) do
+    if not seen[key] then wasDead[key] = nil end
   end
 end
 

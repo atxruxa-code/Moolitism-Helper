@@ -86,8 +86,10 @@ local function ClockTick()
   local h12 = h % 12
   if h12 == 0 then h12 = 12 end
   local text = ("BONG. It is %d o'clock. %s"):format(h12, (string.rep("MOO ", h12):gsub(" $", "")))
-  Group(text)
-  if On("clockGuild") and IsInGuild() then ns:Queue("GUILD", text, 1) end
+  ns:RunAsHost("group", "clock:" .. h, nil, function() Group(text) end)
+  if On("clockGuild") and IsInGuild() then
+    ns:RunAsHost("guild", "clock:" .. h, nil, function() ns:Queue("GUILD", text, 1) end)
+  end
 end
 
 ---------------------------------------------------------------------------
@@ -108,7 +110,7 @@ local function AfkTick()
   for _, unit in ipairs(GroupUnits()) do
     local name = UnitName(unit)
     local isAfk = UnitIsAFK and UnitIsAFK(unit)
-    if Usable(name) and name and Usable(isAfk) then
+    if ns.KnownName(name) and Usable(isAfk) then
       present[name] = true
       local st = afk[name]
       if isAfk and not st then
